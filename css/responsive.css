@@ -40,7 +40,7 @@
   .reader-header { inset-inline: 8px; }
   .header-bubble-left { max-width: calc(100vw - 154px); padding-left: 5px; }
   .reader-viewport {
-    padding: 110px 20px calc(var(--composer-height, 200px) + 100px);
+    padding: 82px 20px calc(var(--composer-height, 200px) + 100px);
   }
   .story-content { font-size: 17px; line-height: 1.92; }
 

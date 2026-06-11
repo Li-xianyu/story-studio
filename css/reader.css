@@ -82,7 +82,7 @@
   overflow: hidden auto; overscroll-behavior: contain;
   scroll-behavior: smooth;
   padding:
-    104px
+    76px
     max(24px, calc((100% - var(--reader-width)) / 2))
     calc(var(--composer-height, 204px) + 72px);
 }

@@ -229,10 +229,10 @@ export function bindEvents() {
   document.getElementById("emptyStartBtn").addEventListener("click", function () { el.setupDialog.showModal(); });
   document.getElementById("addChapterBtn").addEventListener("click", newChapter);
   document.getElementById("settingsBtn").addEventListener("click", function () { openSettings(); });
-  document.getElementById("themeBtn").addEventListener("click", function () {
+  document.getElementById("libraryThemeBtn").addEventListener("click", function () {
     settings.theme = settings.theme === "dark" ? "light" : "dark";
     saveSettings();
-    var btn = document.getElementById("themeBtn");
+    var btn = document.getElementById("libraryThemeBtn");
     btn.innerHTML = "";
     btn.appendChild(lucide.createElement(settings.theme === "dark" ? lucide.Sun : lucide.Moon));
     renderControls();

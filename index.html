@@ -34,7 +34,7 @@
           <strong>浮光剧场</strong>
           <small>AI 互动小说播放器</small>
         </div>
-        <button class="icon-btn library-close-btn" data-close-panel="library" title="收起书架" aria-label="收起书架"><i data-lucide="x"></i></button>
+        <button id="libraryThemeBtn" class="icon-btn" title="切换主题" aria-label="切换主题"><i data-lucide="sun"></i></button>
       </div>
 
       <button id="newStoryBtn" class="primary-btn wide">＋ 新建故事</button>
@@ -65,14 +65,13 @@
           </div>
         </div>
         <div class="header-bubble header-actions">
-          <button id="themeBtn" class="icon-btn" title="切换主题"><i data-lucide="sun"></i></button>
+          <button id="audioPanelToggle" class="icon-btn" title="朗读控制" aria-label="朗读控制" aria-expanded="false"><i data-lucide="headphones"></i></button>
           <button id="focusBtn" class="icon-btn" title="沉浸模式"><i data-lucide="maximize-2"></i></button>
           <button id="controlsBtn" class="icon-btn" title="故事控制" aria-label="故事控制"><i data-lucide="sliders-horizontal"></i></button>
         </div>
       </header>
 
       <section id="readerViewport" class="reader-viewport">
-        <button id="audioPanelToggle" class="audio-float-btn" type="button" title="朗读控制" aria-label="朗读控制" aria-expanded="false"><i data-lucide="headphones"></i></button>
         <article id="storyContent" class="story-content"></article>
         <div id="emptyState" class="empty-state">
           <span class="empty-kicker">从一个念头开始</span>

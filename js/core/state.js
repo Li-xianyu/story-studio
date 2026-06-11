@@ -48,7 +48,8 @@ var ids = [
   "temperature", "ttsProvider", "systemVoice", "systemPitch", "ttsHost", "ttsKey", "ttsModel", "ttsVoice",
   "systemTtsFields", "mimoTtsFields", "settingsStatus", "importInput",
   "segmentEditDialog", "segmentEditor", "undoBar", "undoText",
-  "deleteStoryDialog", "deleteStoryName", "confirmDeleteStoryBtn"
+  "deleteStoryDialog", "deleteStoryName", "confirmDeleteStoryBtn",
+  "libraryThemeBtn"
 ];
 
 export function cacheElements() {
