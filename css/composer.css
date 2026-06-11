@@ -163,8 +163,8 @@
 
 .composer-main {
   display: grid; grid-template-columns: minmax(0, 1fr) auto;
-  min-height: 72px; gap: 8px; align-items: center;
-  padding: 10px 12px 10px 16px;
+  min-height: 72px; gap: 4px; align-items: end;
+  padding: 8px 8px 6px 14px;
   border: 1px solid rgba(255,255,255,.06);
   border-radius: 26px;
   background: rgba(0,0,0,.09);
@@ -177,7 +177,7 @@
 }
 
 .composer textarea {
-  width: 100%; max-height: 150px;
+  width: 100%; max-height: 150px; resize: none;
   min-height: 48px;
   border: 0; border-radius: 19px;
   padding: 9px 6px;
@@ -201,16 +201,14 @@
 
 .send-btn {
   display: grid; place-items: center;
-  width: 44px; min-width: 44px; height: 44px;
+  width: 36px; min-width: 36px; height: 36px;
   border-radius: var(--radius-pill);
-  background:
-    radial-gradient(circle at 35% 20%, rgba(255,255,255,.55), transparent 34%),
-    linear-gradient(180deg, #2aa8ff, #007aff);
+  background: var(--accent);
   color: #ffffff;
-  box-shadow: 0 10px 24px rgba(0,122,255,.32),
-    inset 0 1px 0 rgba(255,255,255,.52),
-    inset 0 -1px 0 rgba(0,0,0,.16);
-  transition: transform .16s ease, filter .16s ease;
+  box-shadow: none;
+  transition: transform .16s ease, background .16s ease;
+  align-self: end;
+  margin-bottom: 3px;
 }
 .send-btn svg { width: 20px; height: 20px; stroke-width: 2.5; }
 .send-btn.danger svg { width: 14px; height: 14px; fill: currentColor; }
@@ -229,17 +227,17 @@
   width: 32px; height: 32px;
   border-radius: 50%;
   color: var(--text-secondary);
-  background: rgba(255,255,255,.055);
-  border: 1px solid rgba(255,255,255,.055);
-  box-shadow: inset 0 1px rgba(255,255,255,.045);
-  transition: transform .2s var(--ease-fluid), background .18s, color .18s;
+  background: transparent;
+  border: 0;
+  transition: all .18s var(--ease-fluid);
 }
-.composer-menu-btn svg { width: 17px; height: 17px; transition: transform .22s var(--ease-fluid); }
+.composer-menu-btn svg { width: 17px; height: 17px; }
 .composer-menu-btn:hover {
   color: var(--text-primary);
-  background: rgba(255,255,255,.13);
+  background: rgba(255,255,255,.08);
 }
-.composer-menu-btn.active svg { transform: rotate(45deg); }
+.composer-menu-btn.active { color: var(--text-primary); background: rgba(255,255,255,.08); }
+
 .composer-action-menu {
   position: absolute; z-index: 30;
   left: 0; bottom: calc(100% + 9px);
@@ -276,27 +274,24 @@
 .composer-menu-item svg { width: 17px; height: 17px; stroke-width: 1.8; }
 [data-theme="light"] .composer-menu-btn {
   color: rgba(0,0,0,.54);
-  background: rgba(60,60,67,.055);
-  border-color: rgba(255,255,255,.26);
-  box-shadow: inset 0 1px rgba(255,255,255,.34);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 [data-theme="light"] .composer-menu-btn:hover,
 [data-theme="light"] .composer-menu-btn.active {
   color: rgba(0,0,0,.78);
-  background: rgba(118,118,128,.12);
+  background: rgba(0,0,0,.06);
+}
 }
 
 #statusText {
   margin-left: auto;
-  min-height: 30px; padding: 0 12px;
+  min-height: 30px; padding: 0 8px;
   display: inline-flex; align-items: center;
-  border: 1px solid rgba(255,255,255,.05);
-  border-radius: var(--radius-pill);
-  color: var(--text-tertiary); font-size: 12px; font-weight: 500;
-  background: rgba(255,255,255,.04);
+  color: rgba(200, 205, 215, 0.85); font-size: 12px; font-weight: 500;
+  background: transparent;
 }
 [data-theme="light"] #statusText {
-  color: rgba(0,0,0,.38);
-  background: rgba(60,60,67,.045);
-  border-color: rgba(255,255,255,.22);
+  color: rgba(50, 55, 65, 0.75);
 }

@@ -16,7 +16,7 @@
 </head>
 <body>
   <div id="topLoader" class="top-loader" aria-hidden="true"><span></span></div>
-  <button id="exitFocusBtn" class="exit-focus-btn" type="button">退出沉浸</button>
+  <button id="exitFocusBtn" class="exit-focus-btn" type="button" aria-label="退出沉浸"><i data-lucide="minimize-2"></i></button>
 
   <div class="app-shell">
     <aside id="libraryPanel" class="side-panel library-panel">
@@ -116,7 +116,7 @@
         <div class="composer-tools">
           <div class="composer-menu-wrap">
             <button id="composerMenuBtn" class="composer-menu-btn" type="button" title="更多操作" aria-label="更多操作" aria-expanded="false" aria-controls="composerActionMenu">
-              <i data-lucide="plus"></i>
+              <i data-lucide="more-horizontal"></i>
             </button>
             <div id="composerActionMenu" class="composer-action-menu" role="menu" aria-hidden="true">
               <button id="continueBtn" class="composer-menu-item" role="menuitem"><i data-lucide="sparkles"></i><span>继续写</span></button>

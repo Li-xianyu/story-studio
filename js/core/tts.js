@@ -10,8 +10,19 @@ var preloadKeepRange = 3; // keep this many ahead & behind current index
 
 export function splitSpeechText(text) {
   var clean = String(text || "").replace(/[#*_`>\[\]]/g, "").replace(/\s+/g, " ").trim();
-  var parts = clean.match(/[^。！？!?；;]{1,180}[。！？!?；;]?/g) || [];
-  return parts.map(function (part) { return part.trim(); }).filter(Boolean);
+  // 先按句末标点拆开
+  var raw = clean.match(/[^。！？!?…]+[。！？!?…]?/g) || [];
+  // 太短的句子合并到一起，每条至少 ~60 字符
+  var parts = [];
+  var buf = "";
+  for (var i = 0; i < raw.length; i += 1) {
+    buf += raw[i];
+    if (buf.length >= 60 || i === raw.length - 1) {
+      parts.push(buf.trim());
+      buf = "";
+    }
+  }
+  return parts.filter(Boolean);
 }
 
 function trimPreloadBuffer(currentIndex) {
@@ -52,14 +63,17 @@ export function getSystemVoice() {
 }
 
 function createMimoAudio(chunk) {
+  var speed = Number(el.speechRate.value) || 1;
+  var tag = speed < 0.85 ? "[语速极慢，缓慢低沉]" : speed < 0.95 ? "[语速放慢]" : speed > 1.4 ? "[语速极快，连珠炮]" : speed > 1.1 ? "[语速加快]" : "";
+  var text = tag ? tag + chunk : chunk;
   return fetch((settings.ttsHost || "").replace(/\/+$/, ""), {
     method: "POST",
     headers: { "Content-Type": "application/json", "api-key": settings.ttsKey },
     body: JSON.stringify({
       model: settings.ttsModel,
       messages: [
-        { role: "user", content: "正常语速" },
-        { role: "assistant", content: chunk }
+        { role: "user", content: "朗读以下文本" },
+        { role: "assistant", content: text }
       ],
       audio: { format: "wav", voice: settings.ttsVoice },
       stream: false,
@@ -167,7 +181,9 @@ export async function playSpeechChunk() {
   el.playbackTitle.textContent = state.tts.chunks[index];
   refreshSpeechProgress();
 
-  // Preload next 2 chunks in background
+  // Preload nearby chunks in both directions
+  preloadChunk(index - 2);
+  preloadChunk(index - 1);
   preloadChunk(index + 1);
   preloadChunk(index + 2);
 
@@ -208,6 +224,8 @@ export function playFromIndex(index) {
   state.tts.playing = true;
   state.tts.index = index;
   el.ttsPlayBtn.textContent = "Ⅱ";
+  // Preload a wide range around the jump target
+  for (var i = -3; i <= 3; i += 1) preloadChunk(index + i);
   if (settings.ttsProvider === "mimo") {
     playSpeechChunk();
   } else {
