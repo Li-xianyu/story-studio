@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#171612">
+  <title>浮光剧场 - AI 互动小说</title>
+  <link rel="stylesheet" href="./css/tokens.css">
+  <link rel="stylesheet" href="./css/reset.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/reader.css">
+  <link rel="stylesheet" href="./css/composer.css">
+  <link rel="stylesheet" href="./css/animations.css">
+  <link rel="stylesheet" href="./css/responsive.css">
+</head>
+<body>
+  <div id="topLoader" class="top-loader" aria-hidden="true"><span></span></div>
+  <button id="exitFocusBtn" class="exit-focus-btn" type="button">退出沉浸</button>
+
+  <div class="app-shell">
+    <aside id="libraryPanel" class="side-panel library-panel">
+      <div class="brand-row">
+        <div class="brand-mark">浮</div>
+        <div>
+          <strong>浮光剧场</strong>
+          <small>AI 互动小说播放器</small>
+        </div>
+        <button class="icon-btn library-close-btn" data-close-panel="library" title="收起书架" aria-label="收起书架"><i data-lucide="x"></i></button>
+      </div>
+
+      <button id="newStoryBtn" class="primary-btn wide">＋ 新建故事</button>
+      <div class="section-label">我的故事</div>
+      <div id="storyList" class="story-list"></div>
+
+      <div class="section-head">
+        <span class="section-label">章节目录</span>
+        <button id="addChapterBtn" class="text-btn">新章节</button>
+      </div>
+      <div id="chapterList" class="chapter-list"></div>
+
+      <div class="library-footer">
+        <button id="importBtn" class="quiet-btn">导入</button>
+        <button id="exportBtn" class="quiet-btn">导出</button>
+        <button id="settingsBtn" class="quiet-btn settings-entry"><i data-lucide="settings"></i><span>模型与朗读设置</span></button>
+        <input id="importInput" type="file" accept=".json,.md,.txt" hidden>
+      </div>
+    </aside>
+
+    <main class="reader-shell">
+      <header class="reader-header">
+        <div class="header-bubble header-bubble-left">
+          <button id="libraryToggle" class="icon-btn" title="切换书架" aria-label="切换书架" aria-expanded="true"><i data-lucide="menu"></i></button>
+          <div class="title-block">
+            <input id="storyTitle" class="story-title" value="未命名故事" aria-label="故事名称">
+            <span id="storyMeta">第 1 章 · 0 字</span>
+          </div>
+        </div>
+        <div class="header-bubble header-actions">
+          <button id="themeBtn" class="icon-btn" title="切换主题"><i data-lucide="sun"></i></button>
+          <button id="focusBtn" class="icon-btn" title="沉浸模式"><i data-lucide="maximize-2"></i></button>
+          <button id="controlsBtn" class="icon-btn" title="故事控制" aria-label="故事控制"><i data-lucide="sliders-horizontal"></i></button>
+        </div>
+      </header>
+
+      <section id="readerViewport" class="reader-viewport">
+        <button id="audioPanelToggle" class="audio-float-btn" type="button" title="朗读控制" aria-label="朗读控制" aria-expanded="false"><i data-lucide="headphones"></i></button>
+        <article id="storyContent" class="story-content"></article>
+        <div id="emptyState" class="empty-state">
+          <span class="empty-kicker">从一个念头开始</span>
+          <h1>把故事交给 AI，也把自己写进去。</h1>
+          <p>输入开场设定，或从左侧导入已有小说。你可以随时扮演角色、控制剧情，并让故事边生成边朗读。</p>
+          <button id="emptyStartBtn" class="primary-btn">写下开场</button>
+        </div>
+      </section>
+
+      <section id="playerBar" class="player-bar" aria-hidden="true">
+        <div class="playback-controls">
+          <button id="ttsPrevBtn" class="round-btn" title="上一段">‹</button>
+          <button id="ttsPlayBtn" class="round-btn primary-round" title="朗读或暂停">▶</button>
+          <button id="ttsNextBtn" class="round-btn" title="下一段">›</button>
+        </div>
+        <div class="playback-status">
+          <strong id="playbackTitle">尚未开始朗读</strong>
+          <div class="progress-track"><span id="playbackProgress"></span></div>
+        </div>
+        <label class="compact-field">语速
+          <select id="speechRate">
+            <option value="0.8">0.8×</option>
+            <option value="1" selected>1.0×</option>
+            <option value="1.2">1.2×</option>
+            <option value="1.5">1.5×</option>
+          </select>
+        </label>
+        <label class="switch-label"><input id="autoTtsToggle" type="checkbox"><span></span>自动朗读</label>
+        <button id="audioPanelClose" class="icon-btn audio-close-btn" type="button" title="收起朗读控制"><i data-lucide="x"></i></button>
+      </section>
+
+      <section class="composer">
+        <div class="mode-tabs" role="tablist">
+          <button class="mode-tab active" data-mode="role" title="角色入戏" aria-label="角色入戏" aria-selected="true">
+            <i data-lucide="theater"></i><span>角色入戏</span>
+          </button>
+          <button class="mode-tab" data-mode="director" title="剧情指令" aria-label="剧情指令" aria-selected="false">
+            <i data-lucide="clapperboard"></i><span>剧情指令</span>
+          </button>
+          <button class="mode-tab" data-mode="lore" title="补充设定" aria-label="补充设定" aria-selected="false">
+            <i data-lucide="book-open"></i><span>补充设定</span>
+          </button>
+        </div>
+        <div class="composer-main">
+          <textarea id="composerInput" rows="2" placeholder="以角色身份说话或行动，例如：我推开门，轻声问她是不是一直在等我。"></textarea>
+          <button id="sendBtn" class="send-btn" title="发送" aria-label="发送"><i data-lucide="arrow-up"></i></button>
+          <button id="stopBtn" class="send-btn danger hidden" title="停止生成" aria-label="停止生成"><i data-lucide="square"></i></button>
+        </div>
+        <div class="composer-tools">
+          <div class="composer-menu-wrap">
+            <button id="composerMenuBtn" class="composer-menu-btn" type="button" title="更多操作" aria-label="更多操作" aria-expanded="false" aria-controls="composerActionMenu">
+              <i data-lucide="plus"></i>
+            </button>
+            <div id="composerActionMenu" class="composer-action-menu" role="menu" aria-hidden="true">
+              <button id="continueBtn" class="composer-menu-item" role="menuitem"><i data-lucide="sparkles"></i><span>继续写</span></button>
+              <button id="rewriteBtn" class="composer-menu-item" role="menuitem"><i data-lucide="refresh-cw"></i><span>重写本段</span></button>
+              <button id="branchBtn" class="composer-menu-item" role="menuitem"><i data-lucide="git-branch"></i><span>保存分支</span></button>
+              <button id="summarizeBtn" class="composer-menu-item" role="menuitem"><i data-lucide="brain"></i><span>整理记忆</span></button>
+            </div>
+          </div>
+          <span id="statusText">准备就绪</span>
+        </div>
+      </section>
+    </main>
+
+    <aside id="controlsPanel" class="controls-panel" aria-hidden="true">
+      <div class="panel-title-row">
+        <div>
+          <strong>故事控制</strong>
+          <small>由当前小说模型继续创作</small>
+        </div>
+        <button class="icon-btn" data-close-panel="controls" title="关闭故事控制" aria-label="关闭故事控制"><i data-lucide="x"></i></button>
+      </div>
+
+      <div class="control-card">
+        <div class="section-label">快捷指令</div>
+        <div id="directorPresets" class="preset-grid">
+          <button data-directive="推进主线，减少无效铺垫，让本段出现明确的新进展。">推进主线</button>
+          <button data-directive="提升冲突强度，让人物面临更艰难的选择，但不要强行反转。">增加冲突</button>
+          <button data-directive="放慢节奏，增加环境、动作与细微情绪描写。">慢镜头</button>
+          <button data-directive="跳过琐碎过渡，直接进入下一个重要场景。">跳过日常</button>
+          <button data-directive="加强人物之间克制而明确的情感张力。">情感升温</button>
+          <button data-directive="切换到当前最适合制造悬念的角色视角。">切换视角</button>
+        </div>
+      </div>
+
+      <div class="control-card settings-grid">
+        <label>叙事视角
+          <select id="povSelect">
+            <option>第三人称限知</option>
+            <option>第一人称</option>
+            <option>第三人称全知</option>
+          </select>
+        </label>
+        <label>单次篇幅
+          <select id="lengthSelect">
+            <option value="short">短 · 约 300 字</option>
+            <option value="medium" selected>中 · 约 650 字</option>
+            <option value="long">长 · 约 1100 字</option>
+          </select>
+        </label>
+        <label>文风
+          <input id="styleInput" value="沉浸、细腻、克制，重视动作与对白">
+        </label>
+        <label>用户角色
+          <input id="playerRoleInput" placeholder="例如：沈砚">
+        </label>
+        <label>开场设定
+          <textarea id="premiseInput" rows="3" placeholder="创建故事时填写的开场设定"></textarea>
+        </label>
+        <label class="switch-label"><input id="autoContinueToggle" type="checkbox"><span></span>自动续写</label>
+      </div>
+
+      <details class="memory-card" open>
+        <summary>故事摘要</summary>
+        <div class="memory-toolbar"><button data-memory="summary">编辑</button></div>
+        <div id="summaryMemory" class="memory-content">尚未整理。</div>
+      </details>
+      <details class="memory-card">
+        <summary>人物关系</summary>
+        <div class="memory-toolbar"><button data-memory="characters">编辑</button></div>
+        <div id="charactersMemory" class="memory-content">尚未记录。</div>
+      </details>
+      <details class="memory-card">
+        <summary>世界状态</summary>
+        <div class="memory-toolbar"><button data-memory="world">编辑</button></div>
+        <div id="worldMemory" class="memory-content">尚未记录。</div>
+      </details>
+      <details class="memory-card">
+        <summary>未解伏笔</summary>
+        <div class="memory-toolbar"><button data-memory="threads">编辑</button></div>
+        <div id="threadsMemory" class="memory-content">尚未记录。</div>
+      </details>
+
+      <div class="control-card">
+        <div class="section-head"><span class="section-label">分支快照</span></div>
+        <div id="branchList" class="branch-list"></div>
+      </div>
+    </aside>
+  </div>
+
+  <div id="mobileBackdrop" class="mobile-backdrop"></div>
+
+  <dialog id="setupDialog" class="modal">
+    <form method="dialog" id="setupForm">
+      <div class="modal-head"><div><strong>新建故事</strong><small>从设定、片段或一句话开始</small></div><button type="button" class="icon-btn" data-close-dialog="setupDialog" title="关闭" aria-label="关闭"><i data-lucide="x"></i></button></div>
+      <label>故事名称<input id="setupTitle" required placeholder="例如：长夜尽头"></label>
+      <label>开场设定<textarea id="setupPrompt" rows="8" required placeholder="粘贴你平时发给 DeepSeek 的小说 Prompt，也可以只写人物、世界和开场局面。"></textarea></label>
+      <div class="two-columns">
+        <label>你的角色<input id="setupRole" placeholder="可留空，之后再入戏"></label>
+        <label>类型<input id="setupGenre" placeholder="悬疑、都市、仙侠……"></label>
+      </div>
+      <div class="modal-actions"><button type="button" class="quiet-btn" data-close-dialog="setupDialog">取消</button><button id="createStoryBtn" value="default" class="primary-btn">创建并开写</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="settingsDialog" class="modal settings-modal">
+    <form method="dialog" id="settingsForm">
+      <div class="modal-head"><div><strong>连接与朗读</strong><small>配置保存在当前浏览器</small></div><button type="button" class="icon-btn" data-close-dialog="settingsDialog" title="关闭" aria-label="关闭"><i data-lucide="x"></i></button></div>
+      <div class="settings-tabs"><button type="button" class="active" data-settings-tab="model">模型</button><button type="button" data-settings-tab="tts">朗读</button></div>
+      <section data-settings-panel="model">
+        <label>API 地址<input id="apiHost" placeholder="https://api.deepseek.com"></label>
+        <label>API Key<input id="apiKey" type="password" autocomplete="off"></label>
+        <label>模型<input id="apiModel" placeholder="deepseek-chat"></label>
+        <label>Temperature<input id="temperature" type="number" min="0" max="2" step="0.1"></label>
+        <button id="importMoyuConfigBtn" type="button" class="quiet-btn wide">读取 MOYU 当前接口配置</button>
+      </section>
+      <section data-settings-panel="tts" hidden>
+        <label>朗读方式
+          <select id="ttsProvider"><option value="system">系统 TTS</option><option value="mimo">MiMo TTS</option></select>
+        </label>
+        <div id="systemTtsFields">
+          <label>系统音色<select id="systemVoice"><option value="">默认音色</option></select></label>
+          <label>音高<input id="systemPitch" type="range" min="0.6" max="1.5" step="0.1"></label>
+        </div>
+        <div id="mimoTtsFields" hidden>
+          <label>MiMo 接口<input id="ttsHost" placeholder="https://api.xiaomimimo.com/v1/chat/completions"></label>
+          <label>MiMo Key<input id="ttsKey" type="password" autocomplete="off"></label>
+          <div class="two-columns"><label>模型<input id="ttsModel"></label><label>音色<input id="ttsVoice"></label></div>
+        </div>
+        <button id="ttsTestBtn" type="button" class="quiet-btn wide">测试朗读</button>
+      </section>
+      <div class="modal-actions"><span id="settingsStatus"></span><button type="button" class="quiet-btn" data-close-dialog="settingsDialog">取消</button><button id="saveSettingsBtn" value="default" class="primary-btn">保存</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="memoryDialog" class="modal">
+    <form method="dialog" id="memoryForm">
+      <div class="modal-head"><strong id="memoryDialogTitle">编辑记忆</strong><button type="button" class="icon-btn" data-close-dialog="memoryDialog" title="关闭" aria-label="关闭"><i data-lucide="x"></i></button></div>
+      <textarea id="memoryEditor" rows="12"></textarea>
+      <div class="modal-actions"><button type="button" class="quiet-btn" data-close-dialog="memoryDialog">取消</button><button id="saveMemoryBtn" value="default" class="primary-btn">保存</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="segmentEditDialog" class="modal">
+    <form method="dialog" id="segmentEditForm">
+      <div class="modal-head"><div><strong>编辑正文</strong><small>直接修改这一段，不会调用模型</small></div><button type="button" class="icon-btn" data-close-dialog="segmentEditDialog" title="关闭" aria-label="关闭"><i data-lucide="x"></i></button></div>
+      <textarea id="segmentEditor" rows="16"></textarea>
+      <div class="modal-actions"><button type="button" class="quiet-btn" data-close-dialog="segmentEditDialog">取消</button><button id="saveSegmentBtn" value="default" class="primary-btn">保存修改</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="deleteStoryDialog" class="modal confirm-modal">
+    <form method="dialog">
+      <div class="modal-head">
+        <div><strong>删除故事？</strong><small>此操作无法撤销</small></div>
+        <button type="button" class="icon-btn" data-close-dialog="deleteStoryDialog" title="关闭" aria-label="关闭"><i data-lucide="x"></i></button>
+      </div>
+      <p class="confirm-copy">将永久删除“<strong id="deleteStoryName"></strong>”及其全部章节、记忆和分支。</p>
+      <div class="modal-actions">
+        <button type="button" class="quiet-btn" data-close-dialog="deleteStoryDialog">取消</button>
+        <button id="confirmDeleteStoryBtn" type="button" class="danger-btn">删除</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="undoBar" class="undo-bar">
+    <span id="undoText">已修改正文</span>
+    <button id="undoBtn" type="button">撤销</button>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="./vendor/lucide/0.468.0/lucide.min.js"></script>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

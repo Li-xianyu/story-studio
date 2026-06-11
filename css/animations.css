@@ -1,0 +1,12 @@
+/* ============================================================
+   浮光剧场 · Animations
+   ============================================================ */
+
+@keyframes travel {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(calc(100vw + 10%)); }
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}

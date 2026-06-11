@@ -1,0 +1,122 @@
+/* ============================================================
+   浮光剧场 · Design Tokens
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+
+  /* --- Surface hierarchy --- */
+  --bg-base: #05070b;
+  --bg-surface: #10141c;
+  --bg-elevated: #171c26;
+  --bg-grouped: rgba(12, 15, 21, 0.76);
+  --bg-grouped-2: #2c2c2e;
+  --bg-grouped-3: #3a3a3c;
+
+  /* --- Liquid Glass material --- */
+  --glass-bg: rgba(29, 35, 46, 0.48);
+  --glass-bg-thick: rgba(25, 30, 40, 0.72);
+  --glass-bg-thin: rgba(255, 255, 255, 0.055);
+  --glass-border: rgba(255, 255, 255, 0.10);
+  --glass-border-strong: rgba(255, 255, 255, 0.18);
+  --glass-highlight: rgba(255, 255, 255, 0.16);
+  --glass-shadow: rgba(0, 0, 0, 0.35);
+  --glass-shadow-deep: rgba(0, 0, 0, 0.55);
+  --glass-lensing: rgba(255, 255, 255, 0.04);
+
+  /* --- Text --- */
+  --text-primary: #ffffff;
+  --text-secondary: rgba(235, 235, 245, 0.6);
+  --text-tertiary: rgba(235, 235, 245, 0.3);
+  --text-quaternary: rgba(235, 235, 245, 0.18);
+
+  /* --- Separators --- */
+  --separator: rgba(84, 84, 88, 0.65);
+  --separator-light: rgba(84, 84, 88, 0.36);
+
+  /* --- System Colors --- */
+  --blue: #2997ff;
+  --blue-glass: rgba(10, 132, 255, 0.22);
+  --green: #30d158;
+  --green-glass: rgba(48, 209, 88, 0.22);
+  --red: #ff453a;
+  --red-glass: rgba(255, 69, 58, 0.22);
+  --orange: #ff9f0a;
+  --purple: #bf5af2;
+  --teal: #64d2ff;
+  --indigo: #5e5ce6;
+
+  /* --- Accent (primary action) --- */
+  --accent: #0a84ff;
+  --accent-text: #0a84ff;
+  --accent-glass: rgba(10, 132, 255, 0.18);
+
+  /* --- Shadows --- */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.2), 0 0 1px rgba(0,0,0,0.1);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.25), 0 1px 3px rgba(0,0,0,0.15);
+  --shadow-lg: 0 8px 28px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.2);
+  --shadow-float: 0 16px 48px rgba(0,0,0,0.38), 0 3px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,.12);
+
+  /* --- Radius System --- */
+  --radius-xs: 8px;
+  --radius-sm: 14px;
+  --radius-md: 18px;
+  --radius-lg: 22px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;
+
+  /* --- Easing --- */
+  --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-fluid: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  --reader-width: 720px;
+  --material-blur: blur(32px) saturate(180%);
+  --control-height: 44px;
+}
+
+/* --- iOS Light Theme --- */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-base: #f7f7f9;
+  --bg-surface: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-grouped: #f2f2f7;
+  --bg-grouped-2: #ffffff;
+  --bg-grouped-3: #e5e5ea;
+
+  --glass-bg: rgba(255, 255, 255, 0.34);
+  --glass-bg-thick: rgba(255, 255, 255, 0.52);
+  --glass-bg-thin: rgba(255, 255, 255, 0.28);
+  --glass-border: rgba(255, 255, 255, 0.78);
+  --glass-border-strong: rgba(255, 255, 255, 0.92);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-shadow: rgba(0, 0, 0, 0.08);
+  --glass-shadow-deep: rgba(0, 0, 0, 0.15);
+  --glass-lensing: rgba(255, 255, 255, 0.7);
+
+  --text-primary: #000000;
+  --text-secondary: rgba(60, 60, 67, 0.6);
+  --text-tertiary: rgba(60, 60, 67, 0.3);
+  --text-quaternary: rgba(60, 60, 67, 0.15);
+
+  --separator: rgba(60, 60, 67, 0.29);
+  --separator-light: rgba(60, 60, 67, 0.12);
+
+  --blue: #007aff;
+  --blue-glass: rgba(0, 122, 255, 0.14);
+  --green: #34c759;
+  --green-glass: rgba(52, 199, 89, 0.14);
+  --red: #ff3b30;
+  --red-glass: rgba(255, 59, 48, 0.14);
+
+  --accent: #007aff;
+  --accent-text: #007aff;
+  --accent-glass: rgba(0, 122, 255, 0.10);
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.06), 0 0 1px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05);
+  --shadow-lg: 0 8px 28px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-float: 0 18px 48px rgba(70,76,88,.12), 0 3px 12px rgba(70,76,88,.07), inset 0 1px 1px rgba(255,255,255,.9);
+}

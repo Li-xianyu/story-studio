@@ -1,0 +1,53 @@
+/* ============================================================
+   浮光剧场 · Reset & Base
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+* { scrollbar-width: thin; scrollbar-color: var(--bg-grouped-3) transparent; }
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--bg-grouped-3); border-radius: 3px; }
+
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif;
+  font-size: 14px; line-height: 1.47;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, input, textarea, select { font: inherit; color: inherit; }
+button { border: 0; background: none; cursor: pointer; -webkit-user-select: none; user-select: none; }
+input, textarea, select { -webkit-user-select: text; user-select: text; }
+textarea { resize: vertical; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+[hidden] { display: none !important; }
+.hidden { display: none !important; }
+.mobile-only { display: none !important; }
+
+label {
+  display: grid; gap: 6px;
+  color: var(--text-secondary); font-size: 12px; font-weight: 500;
+}
+
+input, textarea, select {
+  min-width: 0; border: 1px solid var(--separator);
+  border-radius: var(--radius-sm); padding: 10px 12px;
+  background: var(--glass-bg); color: var(--text-primary);
+  transition: border-color .2s, box-shadow .2s;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glass);
+  outline: none;
+}
+input::placeholder, textarea::placeholder { color: var(--text-tertiary); }
+
+small { color: var(--text-tertiary); font-size: 11px; }
