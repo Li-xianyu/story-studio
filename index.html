@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#171612">
   <title>浮光剧场 - AI 互动小说</title>
+  <script>
+    (function () {
+      try {
+        var saved = JSON.parse(localStorage.getItem("floating-story-studio-settings-v1"));
+        if (saved && saved.theme) document.documentElement.dataset.theme = saved.theme;
+      } catch (_) {}
+    })();
+  </script>
   <link rel="stylesheet" href="./css/tokens.css">
   <link rel="stylesheet" href="./css/reset.css">
   <link rel="stylesheet" href="./css/layout.css">
