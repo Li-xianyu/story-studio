@@ -6,8 +6,8 @@ import { state, settings, el, getStory, getChapter, touchStory, saveState, saveS
 import { uid, nowIso, toast, setBusy } from "../core/utils.js";
 import { renderAll, renderStory, renderStoryList, renderChapterList, renderControls, renderMemory, renderBranches } from "./renderer.js";
 import { openSettings, saveSettingsForm, readMoyuSettings, syncTtsProviderFields, openSegmentEditor, saveSegmentEdit, createUndoSnapshot, undoLastChange } from "./dialogs.js";
-import { speakText, stopSpeech, toggleSpeech, playSpeechChunk, populateVoices } from "../core/tts.js";
-import { newChapter, renameChapter, deleteChapter, deleteStory, saveBranch, restoreBranch, deleteSegment, rewriteFromSegment, continueFromSegment, closeMobilePanels } from "../story/story.js";
+import { speakText, stopSpeech, toggleSpeech, playFromIndex, populateVoices } from "../core/tts.js";
+import { newChapter, renameChapter, deleteChapter, renameStory, deleteStory, saveBranch, restoreBranch, deleteSegment, rewriteFromSegment, continueFromSegment, closeMobilePanels } from "../story/story.js";
 import { summarizeMemory, recentNarrative, looksNarrativeIncomplete, getLengthMaxTokens, buildSystemPrompt } from "../story/memory.js";
 import { exportStory, importFile } from "../story/import-export.js";
 import { streamCompletion } from "../core/api.js";
@@ -278,13 +278,19 @@ export function bindEvents() {
 
   el.storyList.addEventListener("click", function (event) {
     var actionButton = event.target.closest("[data-story-action]");
-    if (actionButton && actionButton.dataset.storyAction === "delete") {
-      var story = state.stories.find(function (item) { return item.id === actionButton.dataset.storyId; });
-      if (!story) return;
-      pendingDeleteStoryId = story.id;
-      el.deleteStoryName.textContent = story.title || "\u672a\u547d\u540d\u6545\u4e8b";
-      el.deleteStoryDialog.showModal();
-      return;
+    if (actionButton) {
+      if (actionButton.dataset.storyAction === "delete") {
+        var story = state.stories.find(function (item) { return item.id === actionButton.dataset.storyId; });
+        if (!story) return;
+        pendingDeleteStoryId = story.id;
+        el.deleteStoryName.textContent = story.title || "\u672a\u547d\u540d\u6545\u4e8b";
+        el.deleteStoryDialog.showModal();
+        return;
+      }
+      if (actionButton.dataset.storyAction === "rename") {
+        renameStory(actionButton.dataset.storyId);
+        return;
+      }
     }
     var button = event.target.closest("[data-story-id]");
     if (!button) return;
@@ -344,7 +350,6 @@ export function bindEvents() {
     }
   });
 
-  el.storyTitle.addEventListener("change", function () { applyStoryControl("title", el.storyTitle.value.trim() || "\u672a\u547d\u540d\u6545\u4e8b"); renderStoryList(); });
   el.povSelect.addEventListener("change", function () { applyStoryControl("pov", el.povSelect.value); });
   el.lengthSelect.addEventListener("change", function () { applyStoryControl("length", el.lengthSelect.value); });
   el.styleInput.addEventListener("change", function () { applyStoryControl("style", el.styleInput.value.trim()); });
@@ -457,11 +462,11 @@ export function bindEvents() {
   el.ttsPlayBtn.addEventListener("click", toggleSpeech);
   document.getElementById("ttsPrevBtn").addEventListener("click", function () {
     if (!state.tts.chunks.length) return toggleSpeech();
-    stopSpeech(); state.tts.playing = true; state.tts.index = Math.max(0, state.tts.index - 1); el.ttsPlayBtn.textContent = "\u2161"; playSpeechChunk();
+    playFromIndex(Math.max(0, state.tts.index - 1));
   });
   document.getElementById("ttsNextBtn").addEventListener("click", function () {
     if (!state.tts.chunks.length) return toggleSpeech();
-    stopSpeech(); state.tts.playing = true; state.tts.index = Math.min(state.tts.chunks.length - 1, state.tts.index + 1); el.ttsPlayBtn.textContent = "\u2161"; playSpeechChunk();
+    playFromIndex(Math.min(state.tts.chunks.length - 1, state.tts.index + 1));
   });
 
   document.getElementById("exportBtn").addEventListener("click", exportStory);

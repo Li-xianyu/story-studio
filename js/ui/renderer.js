@@ -25,7 +25,9 @@ export function renderStoryList() {
       return '<div class="story-row">' +
         '<button class="story-item ' + (story.id === state.activeStoryId ? "active" : "") + '" data-story-id="' + story.id + '">' +
         "<strong>" + escapeHtml(story.title) + "</strong><small>" + story.chapters.length + " \u7ae0 \u00b7 " + count + " \u5b57</small></button>" +
-        '<div class="story-row-actions"><button class="story-mini-btn danger" data-story-action="delete" data-story-id="' + story.id +
+        '<div class="story-row-actions"><button class="story-mini-btn" data-story-action="rename" data-story-id="' + story.id +
+        '" title="\u91cd\u547d\u540d" aria-label="\u91cd\u547d\u540d"><i data-lucide="pencil"></i></button>' +
+        '<button class="story-mini-btn danger" data-story-action="delete" data-story-id="' + story.id +
         '" title="\u5220\u9664\u6545\u4e8b" aria-label="\u5220\u9664' + escapeHtml(story.title) + '"><i data-lucide="trash-2"></i></button></div></div>';
     }).join("");
 }
@@ -60,7 +62,7 @@ export function renderStory(options) {
     document.body.classList.add("welcome-mode");
     el.emptyState.classList.remove("hidden");
     el.storyContent.innerHTML = "";
-    el.storyTitle.value = "";
+    el.storyTitle.textContent = "";
     el.storyMeta.textContent = "";
     return;
   }
@@ -71,7 +73,7 @@ export function renderStory(options) {
   el.emptyState.classList.toggle("hidden", hasContent || hasStarted);
   el.storyContent.innerHTML = chapter.segments.map(segmentHtml).join("");
   if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
-  el.storyTitle.value = story.title;
+  el.storyTitle.textContent = story.title;
   var words = chapter.segments.reduce(function (sum, segment) { return sum + String(segment.content || "").length; }, 0);
   var chapterIndex = story.chapters.findIndex(function (item) { return item.id === chapter.id; }) + 1;
   el.storyMeta.textContent = "\u7b2c " + chapterIndex + " \u7ae0 \u00b7 " + words + " \u5b57";

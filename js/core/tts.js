@@ -5,19 +5,40 @@
 import { settings, state, el, getStory, getChapter } from "./state.js";
 import { toast } from "./utils.js";
 
+var preloadBuffer = {};
+var preloadKeepRange = 3; // keep this many ahead & behind current index
+
 export function splitSpeechText(text) {
   var clean = String(text || "").replace(/[#*_`>\[\]]/g, "").replace(/\s+/g, " ").trim();
   var parts = clean.match(/[^。！？!?；;]{1,180}[。！？!?；;]?/g) || [];
   return parts.map(function (part) { return part.trim(); }).filter(Boolean);
 }
 
+function trimPreloadBuffer(currentIndex) {
+  var min = currentIndex - preloadKeepRange;
+  var max = currentIndex + preloadKeepRange;
+  Object.keys(preloadBuffer).forEach(function (key) {
+    var num = Number(key);
+    if (num < min || num > max) {
+      if (preloadBuffer[num] && preloadBuffer[num].url) URL.revokeObjectURL(preloadBuffer[num].url);
+      delete preloadBuffer[num];
+    }
+  });
+}
+
+function clearPreloadBuffer() {
+  Object.keys(preloadBuffer).forEach(function (key) {
+    if (preloadBuffer[key].url) URL.revokeObjectURL(preloadBuffer[key].url);
+  });
+  preloadBuffer = {};
+}
+
 export function stopSpeech() {
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   if (state.tts.audio) { state.tts.audio.pause(); state.tts.audio = null; }
-  if (state.tts.url) { URL.revokeObjectURL(state.tts.url); state.tts.url = ""; }
   state.tts.playing = false;
   state.tts.paused = false;
-  el.ttsPlayBtn.textContent = "\u25b6";
+  el.ttsPlayBtn.textContent = "▶";
 }
 
 export function refreshSpeechProgress() {
@@ -30,18 +51,110 @@ export function getSystemVoice() {
   return voices.find(function (voice) { return voice.voiceURI === settings.systemVoice; }) || null;
 }
 
+function createMimoAudio(chunk) {
+  return fetch((settings.ttsHost || "").replace(/\/+$/, ""), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "api-key": settings.ttsKey },
+    body: JSON.stringify({
+      model: settings.ttsModel,
+      messages: [
+        { role: "user", content: "正常语速" },
+        { role: "assistant", content: chunk }
+      ],
+      audio: { format: "wav", voice: settings.ttsVoice },
+      stream: false,
+    }),
+  }).then(async function (response) {
+    if (!response.ok) throw new Error("MiMo HTTP " + response.status);
+    var data = await response.json();
+    var base64 = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.audio && data.choices[0].message.audio.data;
+    if (!base64) throw new Error("MiMo 响应中没有音频");
+    var binary = atob(base64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
+  });
+}
+
+function playLoadedChunk(url) {
+  return new Promise(function (resolve, reject) {
+    state.tts.audio = new Audio(url);
+    state.tts.audio.onended = function () {
+      URL.revokeObjectURL(url);
+      state.tts.audio = null;
+      resolve();
+    };
+    state.tts.audio.onerror = function () { reject(new Error("音频播放失败")); };
+    state.tts.audio.play();
+  });
+}
+
+async function preloadChunk(index) {
+  if (index < 0 || index >= state.tts.chunks.length) return;
+  if (preloadBuffer[index]) return;
+  if (settings.ttsProvider !== "mimo") return;
+  if (!settings.ttsKey || !settings.ttsHost) return;
+  preloadBuffer[index] = { loading: true, url: "" };
+  try {
+    var url = await createMimoAudio(state.tts.chunks[index]);
+    preloadBuffer[index] = { loading: false, url: url };
+  } catch (_) {
+    delete preloadBuffer[index];
+  }
+}
+
 export async function speakText(text, fromStart) {
   if (fromStart || !state.tts.chunks.length) {
     stopSpeech();
+    clearPreloadBuffer();
     state.tts.chunks = splitSpeechText(text);
     state.tts.index = 0;
   }
   if (!state.tts.chunks.length) return toast(el.toast, "没有可朗读的正文");
   state.tts.playing = true;
-  el.ttsPlayBtn.textContent = "\u2161";
-  playSpeechChunk();
+  el.ttsPlayBtn.textContent = "Ⅱ";
+
+  if (settings.ttsProvider === "mimo") {
+    playSpeechChunk();
+  } else {
+    playSystemSpeech();
+  }
 }
 
+/* ---- System TTS: queue all at once ---- */
+function playSystemSpeech() {
+  if (!state.tts.chunks.length) return;
+  var rate = Number(el.speechRate.value) || 1;
+  var pitch = Number(settings.systemPitch) || 1;
+  var voice = getSystemVoice();
+  var finished = 0;
+
+  state.tts.chunks.forEach(function (chunk, idx) {
+    var utterance = new SpeechSynthesisUtterance(chunk);
+    utterance.rate = rate;
+    utterance.pitch = pitch;
+    if (voice) utterance.voice = voice;
+    utterance.onend = function () {
+      finished += 1;
+      state.tts.index = finished;
+      refreshSpeechProgress();
+      if (!state.tts.playing) return;
+      if (finished >= state.tts.chunks.length) {
+        stopSpeech();
+        el.playbackTitle.textContent = "朗读完成";
+        refreshSpeechProgress();
+      }
+    };
+    utterance.onerror = function (event) {
+      if (event.error !== "canceled" && event.error !== "interrupted") {
+        toast(el.toast, "朗读失败：" + (event.error || ""));
+      }
+    };
+    window.speechSynthesis.speak(utterance);
+  });
+}
+
+/* ---- MiMo TTS: preload next chunks while playing ---- */
 export async function playSpeechChunk() {
   if (!state.tts.playing || state.tts.index >= state.tts.chunks.length) {
     stopSpeech();
@@ -49,69 +162,32 @@ export async function playSpeechChunk() {
     refreshSpeechProgress();
     return;
   }
-  var chunk = state.tts.chunks[state.tts.index];
-  el.playbackTitle.textContent = chunk;
+
+  var index = state.tts.index;
+  el.playbackTitle.textContent = state.tts.chunks[index];
   refreshSpeechProgress();
+
+  // Preload next 2 chunks in background
+  preloadChunk(index + 1);
+  preloadChunk(index + 2);
+
   try {
-    if (settings.ttsProvider === "mimo") await playMimoChunk(chunk);
-    else await playSystemChunk(chunk);
+    var cached = preloadBuffer[index];
+    if (cached && cached.url) {
+      delete preloadBuffer[index];
+      await playLoadedChunk(cached.url);
+    } else {
+      var url = await createMimoAudio(state.tts.chunks[index]);
+      await playLoadedChunk(url);
+    }
     if (!state.tts.playing) return;
     state.tts.index += 1;
+    trimPreloadBuffer(state.tts.index);
     playSpeechChunk();
   } catch (error) {
     stopSpeech();
     toast(el.toast, "朗读失败：" + error.message);
   }
-}
-
-function playSystemChunk(chunk) {
-  return new Promise(function (resolve, reject) {
-    if (!window.speechSynthesis) return reject(new Error("浏览器不支持系统 TTS"));
-    var utterance = new SpeechSynthesisUtterance(chunk);
-    utterance.rate = Number(el.speechRate.value) || 1;
-    utterance.pitch = Number(settings.systemPitch) || 1;
-    var voice = getSystemVoice();
-    if (voice) utterance.voice = voice;
-    utterance.onend = resolve;
-    utterance.onerror = function (event) {
-      if (event.error === "canceled" || event.error === "interrupted") resolve();
-      else reject(new Error(event.error || "系统朗读失败"));
-    };
-    state.tts.utterance = utterance;
-    window.speechSynthesis.speak(utterance);
-  });
-}
-
-async function playMimoChunk(chunk) {
-  if (!settings.ttsKey || !settings.ttsHost) throw new Error("请先配置 MiMo TTS");
-  var speed = Number(el.speechRate.value) || 1;
-  var hint = speed < 0.9 ? "语速较慢" : speed > 1.3 ? "语速较快" : "正常语速";
-  var response = await fetch(settings.ttsHost.replace(/\/+$/, ""), {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "api-key": settings.ttsKey },
-    body: JSON.stringify({
-      model: settings.ttsModel,
-      messages: [{ role: "user", content: hint }, { role: "assistant", content: chunk }],
-      audio: { format: "wav", voice: settings.ttsVoice },
-      stream: false,
-    }),
-  });
-  if (!response.ok) throw new Error("MiMo HTTP " + response.status);
-  var data = await response.json();
-  var base64 = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.audio && data.choices[0].message.audio.data;
-  if (!base64) throw new Error("MiMo 响应中没有音频");
-  var binary = atob(base64);
-  var bytes = new Uint8Array(binary.length);
-  for (var i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  state.tts.url = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
-  state.tts.audio = new Audio(state.tts.url);
-  await state.tts.audio.play();
-  await new Promise(function (resolve, reject) {
-    state.tts.audio.onended = resolve;
-    state.tts.audio.onerror = function () { reject(new Error("音频播放失败")); };
-  });
-  URL.revokeObjectURL(state.tts.url);
-  state.tts.url = "";
 }
 
 export function toggleSpeech() {
@@ -126,11 +202,24 @@ export function toggleSpeech() {
   speakText(text, true);
 }
 
+export function playFromIndex(index) {
+  stopSpeech();
+  if (!state.tts.chunks.length) return;
+  state.tts.playing = true;
+  state.tts.index = index;
+  el.ttsPlayBtn.textContent = "Ⅱ";
+  if (settings.ttsProvider === "mimo") {
+    playSpeechChunk();
+  } else {
+    playSystemSpeech();
+  }
+}
+
 export function populateVoices() {
   if (!window.speechSynthesis) return;
   var voices = window.speechSynthesis.getVoices() || [];
   el.systemVoice.innerHTML = '<option value="">默认音色</option>' + voices.map(function (voice) {
-    return '<option value="' + voice.voiceURI + '">' + voice.name + " \u00b7 " + voice.lang + "</option>";
+    return '<option value="' + voice.voiceURI + '">' + voice.name + " · " + voice.lang + "</option>";
   }).join("");
   el.systemVoice.value = settings.systemVoice || "";
 }

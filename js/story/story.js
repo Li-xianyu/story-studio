@@ -17,6 +17,17 @@ export function newChapter() {
   renderAll();
 }
 
+export function renameStory(storyId) {
+  var story = state.stories.find(function (item) { return item.id === storyId; });
+  if (!story) return;
+  var name = window.prompt("故事名称", story.title || "");
+  if (!name || !name.trim() || name.trim() === story.title) return;
+  story.title = name.trim();
+  touchStory();
+  renderAll();
+  if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+}
+
 export function deleteStory(storyId) {
   var index = state.stories.findIndex(function (story) { return story.id === storyId; });
   if (index < 0) return;
