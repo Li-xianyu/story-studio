@@ -93,9 +93,9 @@
 
 /* --- iOS Light Theme --- */
 [data-theme="light"] {
-  color-scheme: light;
+  color-scheme: only light;
 
-  --bg-base: #f7f7f9;
+  --bg-base: #ffffff;
   --bg-surface: #ffffff;
   --bg-elevated: #ffffff;
   --bg-grouped: #f2f2f7;

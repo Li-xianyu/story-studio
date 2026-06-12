@@ -97,7 +97,7 @@ export function renderStory(options) {
 
 function syncThemeColor() {
   var meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = settings.theme === "light" ? "#f7f7f9" : "#000000";
+  if (meta) meta.content = settings.theme === "light" ? "#ffffff" : "#000000";
 }
 
 export function renderControls() {
