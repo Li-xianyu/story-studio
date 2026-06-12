@@ -6,6 +6,7 @@ import { cacheElements, loadState } from "./core/state.js";
 import { populateVoices } from "./core/tts.js";
 import { renderAll } from "./ui/renderer.js";
 import { bindEvents } from "./ui/events.js";
+import { initCustomSelects, syncAll } from "./ui/custom-select.js";
 
 function syncComposerHeight() {
   var composer = document.querySelector(".composer");
@@ -58,9 +59,11 @@ function bindLiquidGlass() {
 function init() {
   cacheElements();
   loadState();
+  initCustomSelects();
   bindEvents();
   renderAll();
   populateVoices();
+  syncAll();
   syncComposerHeight();
   bindLiquidGlass();
   window.addEventListener("resize", syncComposerHeight);

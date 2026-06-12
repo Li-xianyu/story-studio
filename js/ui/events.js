@@ -416,6 +416,7 @@ function setAudioPanelOpen(open) {
   var nearBottom = distanceFromBottom < 96 && lastParagraphVisible;
   el.playerBar.classList.toggle("open", open);
   document.body.classList.toggle("audio-panel-open", open);
+  if (!open) { var focused = el.playerBar.querySelector(":focus"); if (focused) focused.blur(); }
   el.playerBar.setAttribute("aria-hidden", open ? "false" : "true");
   el.audioPanelToggle.classList.toggle("active", open);
   el.audioPanelToggle.setAttribute("aria-expanded", open ? "true" : "false");
@@ -641,6 +642,10 @@ export function bindEvents() {
       event.stopPropagation();
       var segmentId = segmentNode.dataset.segmentId;
       var action = actionButton.dataset.segmentAction;
+      if (action === "readFromHere") {
+        var firstBlock = segmentNode.querySelector(".speech-block");
+        if (firstBlock) { var idx = Number(firstBlock.dataset.speechIndex); if (Number.isFinite(idx)) playChapterFromIndex(idx); }
+      }
       if (action === "edit") openSegmentEditor(segmentId);
       if (action === "rewrite") requestSegmentRewrite(segmentId);
       if (action === "insert") insertAfterSegment(segmentId);

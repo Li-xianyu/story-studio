@@ -67,7 +67,7 @@
   .player-bar > .playback-status strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .player-bar > .audio-close-btn { display: none; }
   .player-bar > .compact-field { grid-column: 1; grid-row: 2; display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-secondary); }
-  .player-bar > .compact-field select { font-size: 11px; color: var(--text-primary); padding: 2px 4px; background: transparent; border: 0; }
+  .player-bar > .compact-field .cs-trigger { font-size: 11px; padding: 2px 6px; min-height: 26px; }
   .player-bar > .switch-label { grid-column: 2; grid-row: 2; display: flex; align-items: center; justify-content: flex-end; }
 
   .composer {

@@ -16,8 +16,8 @@
   border: 1px solid rgba(255,255,255,.13);
   border-radius: 34px;
   background:
-    linear-gradient(180deg, rgba(39,45,57,.42), rgba(17,21,29,.26)),
-    rgba(14,18,25,.18);
+    linear-gradient(180deg, rgba(28,28,30,.38), rgba(12,12,14,.24)),
+    rgba(8,8,10,.18);
   backdrop-filter: blur(22px) saturate(160%) contrast(104%);
   -webkit-backdrop-filter: blur(22px) saturate(160%) contrast(104%);
   box-shadow:
@@ -55,8 +55,8 @@
 .composer.is-pressed::after { opacity: .9; }
 .composer.over-content {
   background:
-    linear-gradient(180deg, rgba(39,45,57,.52), rgba(17,21,29,.34)),
-    rgba(14,18,25,.24);
+    linear-gradient(180deg, rgba(28,28,30,.48), rgba(12,12,14,.32)),
+    rgba(8,8,10,.24);
   border-color: rgba(255,255,255,.18);
   box-shadow:
     0 24px 66px rgba(0,0,0,.34),

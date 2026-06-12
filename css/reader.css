@@ -334,7 +334,6 @@ body.audio-panel-open .reader-viewport {
   display: flex; align-items: center; gap: 6px;
   color: var(--text-tertiary); font-size: 12px;
 }
-.compact-field select { border: 0; background: transparent; }
 
 [data-theme="light"] .header-actions .icon-btn,
 [data-theme="light"] .header-bubble-left .icon-btn,

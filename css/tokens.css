@@ -5,20 +5,20 @@
 :root {
   color-scheme: dark;
 
-  /* --- Surface hierarchy --- */
-  --bg-base: #05070b;
-  --bg-surface: #10141c;
-  --bg-elevated: #171c26;
-  --bg-grouped: rgba(12, 15, 21, 0.76);
+  /* --- Surface hierarchy (pure black iOS-style) --- */
+  --bg-base: #000000;
+  --bg-surface: #0a0a0c;
+  --bg-elevated: #141416;
+  --bg-grouped: rgba(12, 12, 14, 0.82);
   --bg-grouped-2: #2c2c2e;
   --bg-grouped-3: #3a3a3c;
 
   /* --- Liquid Glass material --- */
-  --glass-bg: rgba(29, 35, 46, 0.48);
-  --glass-bg-thick: rgba(25, 30, 40, 0.72);
-  --glass-bg-thin: rgba(255, 255, 255, 0.055);
-  --glass-border: rgba(255, 255, 255, 0.10);
-  --glass-border-strong: rgba(255, 255, 255, 0.18);
+  --glass-bg: rgba(20, 20, 24, 0.52);
+  --glass-bg-thick: rgba(16, 16, 20, 0.76);
+  --glass-bg-thin: rgba(255, 255, 255, 0.045);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-strong: rgba(255, 255, 255, 0.15);
   --glass-highlight: rgba(255, 255, 255, 0.16);
   --glass-shadow: rgba(0, 0, 0, 0.35);
   --glass-shadow-deep: rgba(0, 0, 0, 0.55);

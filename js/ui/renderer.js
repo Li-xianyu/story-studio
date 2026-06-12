@@ -48,6 +48,7 @@ export function segmentHtml(segment, speechOffset, isLast) {
   var paragraphs = content.split(/\n\s*\n+/).filter(Boolean);
   var offset = Number(speechOffset) || 0;
   var actions = segment.streaming ? "" : '<div class="segment-actions">' +
+    '<button class="segment-action" data-segment-action="readFromHere" title="\u4ece\u6b64\u5904\u5f00\u59cb\u8bfb"><i data-lucide="play"></i></button>' +
     '<button class="segment-action" data-segment-action="edit" title="\u7f16\u8f91\u539f\u6587"><i data-lucide="pencil"></i></button>' +
     '<button class="segment-action" data-segment-action="rewrite" title="\u91cd\u5199\u6b64\u6bb5"><i data-lucide="refresh-cw"></i></button>' +
     (isLast
