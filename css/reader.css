@@ -117,6 +117,10 @@ body.audio-panel-open .reader-viewport {
   padding-inline: 8px;
   border-radius: 10px;
   cursor: default;
+  transition: background .2s var(--ease-out);
+}
+.story-content .speech-block.is-reading {
+  background: rgba(120,120,128,.08);
 }
 
 .story-content .segment {
