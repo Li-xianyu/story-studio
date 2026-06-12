@@ -2,7 +2,7 @@
    浮光剧场 · Memory / System Prompt
    ============================================================ */
 
-import { state, el, getStory, getChapter } from "../core/state.js";
+import { state, el, getStory, getChapter, touchStory } from "../core/state.js";
 import { toast } from "../core/utils.js";
 import { streamCompletion } from "../core/api.js";
 import { renderMemory } from "../ui/renderer.js";

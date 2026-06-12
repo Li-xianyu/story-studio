@@ -135,37 +135,45 @@ export async function speakText(text, fromStart) {
   }
 }
 
-/* ---- System TTS: queue all at once ---- */
-function playSystemSpeech() {
+/* ---- System TTS: sequential (no overlap) ---- */
+function playSystemSpeech(fromIndex) {
   if (!state.tts.chunks.length) return;
-  var rate = Number(el.speechRate.value) || 1;
-  var pitch = Number(settings.systemPitch) || 1;
-  var voice = getSystemVoice();
-  var finished = 0;
+  window.speechSynthesis.cancel();
+  state.tts.playing = true;
+  state.tts.index = fromIndex || 0;
+  playSystemChunkSequential();
+}
 
-  state.tts.chunks.forEach(function (chunk, idx) {
-    var utterance = new SpeechSynthesisUtterance(chunk);
-    utterance.rate = rate;
-    utterance.pitch = pitch;
-    if (voice) utterance.voice = voice;
-    utterance.onend = function () {
-      finished += 1;
-      state.tts.index = finished;
-      refreshSpeechProgress();
-      if (!state.tts.playing) return;
-      if (finished >= state.tts.chunks.length) {
-        stopSpeech();
-        el.playbackTitle.textContent = "朗读完成";
-        refreshSpeechProgress();
-      }
-    };
-    utterance.onerror = function (event) {
-      if (event.error !== "canceled" && event.error !== "interrupted") {
-        toast(el.toast, "朗读失败：" + (event.error || ""));
-      }
-    };
-    window.speechSynthesis.speak(utterance);
-  });
+function playSystemChunkSequential() {
+  if (!state.tts.playing || state.tts.index >= state.tts.chunks.length) {
+    stopSpeech();
+    el.playbackTitle.textContent = "朗读完成";
+    refreshSpeechProgress();
+    return;
+  }
+
+  var idx = state.tts.index;
+  el.playbackTitle.textContent = state.tts.chunks[idx];
+  refreshSpeechProgress();
+
+  var utterance = new SpeechSynthesisUtterance(state.tts.chunks[idx]);
+  utterance.rate = Number(el.speechRate.value) || 1;
+  utterance.pitch = Number(settings.systemPitch) || 1;
+  var voice = getSystemVoice();
+  if (voice) utterance.voice = voice;
+
+  utterance.onend = function () {
+    if (!state.tts.playing) return;
+    state.tts.index += 1;
+    playSystemChunkSequential();
+  };
+  utterance.onerror = function (event) {
+    if (event.error === "canceled" || event.error === "interrupted") return;
+    state.tts.index += 1;
+    playSystemChunkSequential();
+  };
+
+  window.speechSynthesis.speak(utterance);
 }
 
 /* ---- MiMo TTS: preload next chunks while playing ---- */
@@ -229,7 +237,7 @@ export function playFromIndex(index) {
   if (settings.ttsProvider === "mimo") {
     playSpeechChunk();
   } else {
-    playSystemSpeech();
+    playSystemSpeech(index);
   }
 }
 
