@@ -644,6 +644,7 @@ export function bindEvents() {
       if (action === "edit") openSegmentEditor(segmentId);
       if (action === "rewrite") requestSegmentRewrite(segmentId);
       if (action === "insert") insertAfterSegment(segmentId);
+      if (action === "continue") generateNarrative("紧接当前正文自然续写并推进场景。", "continue");
       if (action === "delete") {
         requestInlineConfirm(actionButton, function () { deleteSegment(segmentId); });
       }
@@ -703,7 +704,9 @@ export function bindEvents() {
     if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); submitComposer(); }
   });
   el.composerInput.addEventListener("input", syncComposerHeight);
-  document.getElementById("continueBtn").addEventListener("click", function () { generateNarrative("自然续写并推进当前场景。", "continue"); });
+  document.getElementById("quickContinueBtn").addEventListener("click", function () {
+    generateNarrative("自然续写并推进当前场景。", "continue");
+  });
   document.getElementById("rewriteBtn").addEventListener("click", function () {
     var chapter = getChapter();
     if (!chapter || state.generating) return;

@@ -43,14 +43,16 @@ export function renderChapterList() {
   }).join("") : "";
 }
 
-export function segmentHtml(segment, speechOffset) {
+export function segmentHtml(segment, speechOffset, isLast) {
   var content = escapeHtml(segment.content || "");
   var paragraphs = content.split(/\n\s*\n+/).filter(Boolean);
   var offset = Number(speechOffset) || 0;
   var actions = segment.streaming ? "" : '<div class="segment-actions">' +
     '<button class="segment-action" data-segment-action="edit" title="\u7f16\u8f91\u539f\u6587"><i data-lucide="pencil"></i></button>' +
     '<button class="segment-action" data-segment-action="rewrite" title="\u91cd\u5199\u6b64\u6bb5"><i data-lucide="refresh-cw"></i></button>' +
-    '<button class="segment-action" data-segment-action="insert" title="\u5728\u6b64\u5904\u63d2\u5199"><i data-lucide="between-horizontal-start"></i></button>' +
+    (isLast
+      ? '<button class="segment-action" data-segment-action="continue" title="\u7eed\u5199"><i data-lucide="fast-forward"></i></button>'
+      : '<button class="segment-action" data-segment-action="insert" title="\u5728\u6b64\u5904\u63d2\u5199"><i data-lucide="between-horizontal-start"></i></button>') +
     '<button class="segment-action danger" data-segment-action="delete" title="\u5220\u9664\u6b64\u6bb5"><i data-lucide="trash-2"></i></button></div>';
   return '<div class="segment ' + (segment.streaming ? "streaming" : "") + '" data-segment-id="' + segment.id + '">' + actions +
     paragraphs.map(function (paragraph, index) {
@@ -76,8 +78,8 @@ export function renderStory(options) {
   document.body.classList.toggle("welcome-mode", welcomeMode);
   el.emptyState.classList.toggle("hidden", hasContent || hasStarted);
   var speechOffset = 0;
-  el.storyContent.innerHTML = chapter.segments.map(function (segment) {
-    var html = segmentHtml(segment, speechOffset);
+  el.storyContent.innerHTML = chapter.segments.map(function (segment, index) {
+    var html = segmentHtml(segment, speechOffset, index === chapter.segments.length - 1);
     speechOffset += String(segment.content || "").split(/\n\s*\n+/).filter(Boolean).length;
     return html;
   }).join("");

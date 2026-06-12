@@ -104,15 +104,20 @@
       </section>
 
       <section class="composer">
-        <div class="mode-tabs" role="tablist">
-          <button class="mode-tab active" data-mode="role" title="角色入戏" aria-label="角色入戏" aria-selected="true">
-            <i data-lucide="theater"></i><span>角色入戏</span>
-          </button>
-          <button class="mode-tab" data-mode="director" title="剧情指令" aria-label="剧情指令" aria-selected="false">
-            <i data-lucide="clapperboard"></i><span>剧情指令</span>
-          </button>
-          <button class="mode-tab" data-mode="lore" title="补充设定" aria-label="补充设定" aria-selected="false">
-            <i data-lucide="book-open"></i><span>补充设定</span>
+        <div class="composer-mode-row">
+          <div class="mode-tabs" role="tablist">
+            <button class="mode-tab active" data-mode="role" title="角色入戏" aria-label="角色入戏" aria-selected="true">
+              <i data-lucide="theater"></i><span>角色入戏</span>
+            </button>
+            <button class="mode-tab" data-mode="director" title="剧情指令" aria-label="剧情指令" aria-selected="false">
+              <i data-lucide="clapperboard"></i><span>剧情指令</span>
+            </button>
+            <button class="mode-tab" data-mode="lore" title="补充设定" aria-label="补充设定" aria-selected="false">
+              <i data-lucide="book-open"></i><span>补充设定</span>
+            </button>
+          </div>
+          <button id="quickContinueBtn" class="quick-continue-btn" type="button" title="继续写">
+            <i data-lucide="fast-forward"></i><span>继续写</span>
           </button>
         </div>
         <div class="composer-main">
@@ -126,7 +131,6 @@
               <i data-lucide="more-horizontal"></i>
             </button>
             <div id="composerActionMenu" class="composer-action-menu" role="menu" aria-hidden="true">
-              <button id="continueBtn" class="composer-menu-item" role="menuitem"><i data-lucide="sparkles"></i><span>继续写</span></button>
               <button id="rewriteBtn" class="composer-menu-item" role="menuitem"><i data-lucide="refresh-cw"></i><span>重写本段</span></button>
               <button id="branchBtn" class="composer-menu-item" role="menuitem"><i data-lucide="git-branch"></i><span>保存分支</span></button>
               <button id="summarizeBtn" class="composer-menu-item" role="menuitem"><i data-lucide="brain"></i><span>整理记忆</span></button>

@@ -77,11 +77,14 @@
     padding: 10px;
     border-radius: 29px;
   }
+  .composer-mode-row { min-width: 0; }
   .mode-tabs {
-    max-width: 100%;
+    min-width: 0;
+    max-width: calc(100% - 104px);
     overflow-x: auto;
     scrollbar-width: none;
   }
+  .quick-continue-btn { height: 40px; padding-inline: 12px; }
   .mode-tabs::-webkit-scrollbar { display: none; }
   .mode-tab {
     min-width: 0;
