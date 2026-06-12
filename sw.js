@@ -1,4 +1,4 @@
-const SW_VERSION = "20260613";
+const SW_VERSION = "20260613q";
 const CACHE_NAME = "xy-story-shell-" + SW_VERSION;
 const APP_SHELL = [
   "./index.html",
