@@ -2,7 +2,7 @@
    浮光剧场 · Dialogs
    ============================================================ */
 
-import { state, settings, el, saveSettings, getStory } from "../core/state.js";
+import { state, settings, el, saveSettings, getStory, saveState } from "../core/state.js";
 import { safeParse, toast } from "../core/utils.js";
 import { renderAll, renderStory, renderChapterList } from "./renderer.js";
 import { populateVoices, speakText } from "../core/tts.js";
