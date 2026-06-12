@@ -115,11 +115,17 @@
   font-size: 14px;
   line-height: 1.65;
 }
+.rewrite-choice-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 18px;
+}
 .confirm-copy strong { color: var(--text-primary); }
 
 /* === Chapter Mini Buttons === */
 .chapter-mini-btn.confirming {
-  width: auto; min-width: 62px; padding: 0 12px;
+  width: 68px; min-width: 68px; padding: 0 12px;
   display: inline-flex; gap: 5px; align-items: center;
   color: #fff; background: var(--red);
   border-radius: var(--radius-pill);
@@ -128,7 +134,14 @@
 .chapter-mini-btn.confirming:hover {
   color: #fff; background: var(--red); filter: brightness(1.1);
 }
-.confirm-label { font-size: 11px; font-weight: 600; white-space: nowrap; }
+.confirm-label {
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+  animation: confirm-label-in .3s var(--ease-fluid) .08s both;
+}
+@keyframes confirm-label-in {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: none; }
+}
 
 /* === Top Loader === */
 .top-loader {
@@ -314,4 +327,16 @@
 @keyframes modal-enter {
   from { opacity: 0; transform: translateY(10px) scale(.98); }
   to { opacity: 1; transform: none; }
+}
+.three-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.field-note {
+  display: block;
+  margin-top: -4px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.45;
 }

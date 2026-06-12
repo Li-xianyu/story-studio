@@ -18,7 +18,7 @@ export var state = {
   editingSegmentId: "",
   undoSnapshot: null,
   undoTimer: 0,
-  tts: { playing: false, paused: false, index: 0, chunks: [], utterance: null, audio: null, url: "" },
+  tts: { playing: false, paused: false, index: 0, chunks: [], chunkVoices: [], chunkParagraphs: [], utterance: null, audio: null, url: "" },
 };
 
 export var settings = {
@@ -33,7 +33,10 @@ export var settings = {
   ttsHost: "https://api.xiaomimimo.com/v1/chat/completions",
   ttsKey: "",
   ttsModel: "mimo-v2.5-tts",
-  ttsVoice: "冰糖",
+  ttsVoice: "白桦",
+  ttsNarratorVoice: "白桦",
+  ttsMaleVoice: "苏打",
+  ttsFemaleVoice: "冰糖",
 };
 
 export var el = {};
@@ -45,9 +48,11 @@ var ids = [
   "settingsDialog", "settingsForm", "memoryDialog", "memoryDialogTitle", "memoryEditor", "toast",
   "povSelect", "lengthSelect", "styleInput", "playerRoleInput", "premiseInput", "autoContinueToggle", "autoTtsToggle",
   "speechRate", "playbackTitle", "playbackProgress", "ttsPlayBtn", "playerBar", "audioPanelToggle", "apiHost", "apiKey", "apiModel",
-  "temperature", "ttsProvider", "systemVoice", "systemPitch", "ttsHost", "ttsKey", "ttsModel", "ttsVoice",
+  "temperature", "ttsProvider", "systemVoice", "systemPitch", "ttsHost", "ttsKey", "ttsModel",
+  "ttsNarratorVoice", "ttsMaleVoice", "ttsFemaleVoice",
   "systemTtsFields", "mimoTtsFields", "settingsStatus", "importInput",
   "segmentEditDialog", "segmentEditor", "undoBar", "undoText",
+  "rewriteChoiceDialog", "rewriteSourcePreview", "rewriteFreeBtn", "rewriteFromInputBtn",
   "deleteStoryDialog", "deleteStoryName", "confirmDeleteStoryBtn",
   "libraryThemeBtn"
 ];
@@ -121,7 +126,12 @@ export function touchStory() {
 export function loadState() {
   var saved = safeParse(localStorage.getItem(STORAGE_KEY), null);
   var savedSettings = safeParse(localStorage.getItem(SETTINGS_KEY), null);
-  if (savedSettings) Object.assign(settings, savedSettings);
+  if (savedSettings) {
+    Object.assign(settings, savedSettings);
+    settings.ttsNarratorVoice = savedSettings.ttsNarratorVoice || savedSettings.ttsVoice || "白桦";
+    settings.ttsMaleVoice = savedSettings.ttsMaleVoice || "苏打";
+    settings.ttsFemaleVoice = savedSettings.ttsFemaleVoice || "冰糖";
+  }
   if (saved && Array.isArray(saved.stories)) {
     state.stories = saved.stories;
     state.activeStoryId = saved.activeStoryId || "";

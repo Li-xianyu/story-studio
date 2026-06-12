@@ -14,7 +14,8 @@ export function openSettings(message) {
 }
 
 export function fillSettingsForm() {
-  ["apiHost", "apiKey", "apiModel", "temperature", "ttsProvider", "systemPitch", "ttsHost", "ttsKey", "ttsModel", "ttsVoice"].forEach(function (key) {
+  ["apiHost", "apiKey", "apiModel", "temperature", "ttsProvider", "systemPitch", "ttsHost", "ttsKey", "ttsModel",
+    "ttsNarratorVoice", "ttsMaleVoice", "ttsFemaleVoice"].forEach(function (key) {
     if (el[key]) el[key].value = settings[key];
   });
   populateVoices();
@@ -28,9 +29,11 @@ export function syncTtsProviderFields() {
 }
 
 export function saveSettingsForm() {
-  ["apiHost", "apiKey", "apiModel", "ttsProvider", "ttsHost", "ttsKey", "ttsModel", "ttsVoice"].forEach(function (key) {
+  ["apiHost", "apiKey", "apiModel", "ttsProvider", "ttsHost", "ttsKey", "ttsModel",
+    "ttsNarratorVoice", "ttsMaleVoice", "ttsFemaleVoice"].forEach(function (key) {
     settings[key] = el[key].value.trim();
   });
+  settings.ttsVoice = settings.ttsNarratorVoice;
   settings.temperature = Number(el.temperature.value) || 0.9;
   settings.systemVoice = el.systemVoice.value;
   settings.systemPitch = Number(el.systemPitch.value) || 1;
@@ -53,7 +56,9 @@ export function readMoyuSettings() {
     el.ttsHost.value = moyu.tts.host || settings.ttsHost;
     el.ttsKey.value = moyu.tts.apiKey || "";
     el.ttsModel.value = moyu.tts.model || settings.ttsModel;
-    el.ttsVoice.value = moyu.tts.voice || settings.ttsVoice;
+    el.ttsNarratorVoice.value = moyu.tts.narratorVoice || moyu.tts.voice || settings.ttsNarratorVoice;
+    el.ttsMaleVoice.value = moyu.tts.maleVoice || settings.ttsMaleVoice;
+    el.ttsFemaleVoice.value = moyu.tts.femaleVoice || settings.ttsFemaleVoice;
     el.systemVoice.value = moyu.tts.systemVoice || "";
     el.systemPitch.value = moyu.tts.systemPitch || 1;
     syncTtsProviderFields();
@@ -76,6 +81,7 @@ export function saveSegmentEdit() {
   if (!value) return toast(el.toast, "\u6b63\u6587\u4e0d\u80fd\u4e3a\u7a7a\uff0c\u53ef\u4ee5\u4f7f\u7528\u5220\u9664\u64cd\u4f5c");
   createUndoSnapshot("\u5df2\u7f16\u8f91\u6b63\u6587");
   found.segment.content = value;
+  found.segment.speechTrack = [];
   found.segment.editedAt = new Date().toISOString();
   saveState();
   renderAll();

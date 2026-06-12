@@ -22,10 +22,13 @@ export async function streamCompletion(messages, onDelta, options) {
     model: settings.apiModel,
     messages: messages,
     stream: true,
-    temperature: Number(settings.temperature) || 0.9,
+    temperature: options && options.temperature !== undefined
+      ? Number(options.temperature)
+      : Number(settings.temperature) || 0.9,
     max_tokens: Number(options && options.maxTokens) || undefined,
   };
   if (!body.max_tokens) delete body.max_tokens;
+  if (options && options.thinking) body.thinking = { type: options.thinking };
   var response = await fetch(normalizedHost(settings.apiHost), {
     method: "POST",
     headers: { Authorization: "Bearer " + settings.apiKey, "Content-Type": "application/json" },

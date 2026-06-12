@@ -9,21 +9,22 @@ import { createUndoSnapshot } from "../ui/dialogs.js";
 
 export function newChapter() {
   var story = getStory();
-  if (!story) return;
+  if (!story) return null;
   var chapter = { id: uid("chapter"), title: "\u7b2c " + (story.chapters.length + 1) + " \u7ae0", segments: [], createdAt: nowIso() };
   story.chapters.push(chapter);
   state.activeChapterId = chapter.id;
   touchStory();
   renderAll();
+  return chapter;
 }
 
-export function renameStory(storyId) {
+export function renameStory(storyId, name) {
   var story = state.stories.find(function (item) { return item.id === storyId; });
   if (!story) return;
-  var name = window.prompt("故事名称", story.title || "");
   if (!name || !name.trim() || name.trim() === story.title) return;
   story.title = name.trim();
-  touchStory();
+  story.updatedAt = nowIso();
+  saveState();
   renderAll();
   if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
 }
@@ -43,11 +44,10 @@ export function deleteStory(storyId) {
   toast(el.toast, "\u6545\u4e8b\u5df2\u5220\u9664");
 }
 
-export function renameChapter(chapterId) {
+export function renameChapter(chapterId, name) {
   var story = getStory();
   var chapter = story && story.chapters.find(function (item) { return item.id === chapterId; });
   if (!chapter) return;
-  var name = window.prompt("\u7ae0\u8282\u540d\u79f0", chapter.title || "");
   if (!name || !name.trim() || name.trim() === chapter.title) return;
   createUndoSnapshot("\u5df2\u91cd\u547d\u540d\u7ae0\u8282");
   chapter.title = name.trim();
@@ -115,10 +115,22 @@ export function deleteSegment(segmentId) {
 export function rewriteFromSegment(segmentId) {
   var found = findSegment(segmentId);
   if (!found || state.generating) return;
+  var story = getStory();
   createUndoSnapshot("\u5df2\u4ece\u6b64\u5904\u91cd\u5199");
+  if (story && story.chapters[0] === found.chapter && found.index === 0) {
+    clearDerivedMemory(story);
+  }
   found.chapter.segments.splice(found.index);
   touchStory();
   renderAll();
+}
+
+export function clearDerivedMemory(story) {
+  if (!story || !story.memory) return;
+  story.memory.summary = "";
+  story.memory.characters = "";
+  story.memory.world = "";
+  story.memory.threads = "";
 }
 
 export function continueFromSegment(segmentId) {
@@ -127,6 +139,7 @@ export function continueFromSegment(segmentId) {
   if (found.index < found.chapter.segments.length - 1) {
     createUndoSnapshot("\u5df2\u5207\u6362\u5230\u6b64\u5904\u7eed\u5199");
     found.chapter.segments.splice(found.index + 1);
+    clearDerivedMemory(getStory());
     touchStory();
     renderAll();
   }

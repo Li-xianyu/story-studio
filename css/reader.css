@@ -81,10 +81,15 @@
   position: relative; min-width: 0; min-height: 0; height: 100%;
   overflow: hidden auto; overscroll-behavior: contain;
   scroll-behavior: smooth;
+  --reader-bottom-space: calc(var(--composer-height, 204px) + 30px);
   padding:
     76px
     max(24px, calc((100% - var(--reader-width)) / 2))
-    calc(var(--composer-height, 204px) + 72px);
+    var(--reader-bottom-space);
+  transition: padding-bottom .32s var(--ease-fluid);
+}
+body.audio-panel-open .reader-viewport {
+  --reader-bottom-space: calc(var(--composer-height, 204px) + 94px);
 }
 
 /* === Story Content === */
@@ -97,41 +102,67 @@
 }
 .story-content p { margin: 0 0 1.3em; white-space: pre-wrap; }
 
+.story-content .speech-block {
+  margin-inline: -8px;
+  padding-inline: 8px;
+  border-radius: 10px;
+  cursor: default;
+  transition: background .2s var(--ease-out), box-shadow .2s var(--ease-out);
+}
+.story-content .speech-block:active {
+  background: rgba(120,120,128,.055);
+}
+.story-content .speech-block.is-reading {
+  background: rgba(120,120,128,.08);
+  box-shadow: inset 2px 0 0 rgba(0,0,0,.24);
+}
+
 .story-content .segment {
   position: relative;
   margin-inline: -14px;
-  padding: 8px 14px;
+  padding: 0 14px;
   border-radius: var(--radius-md);
   transition: background .18s var(--ease-out), box-shadow .18s var(--ease-out);
 }
+.story-content .segment + .segment { margin-top: 0; }
 .story-content .segment:hover,
 .story-content .segment.actions-open {
-  background: rgba(255,255,255,.045);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.035);
+  background: rgba(255,255,255,.075);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.09),
+    inset 0 1px 0 rgba(255,255,255,.06);
 }
 [data-theme="light"] .story-content .segment:hover,
 [data-theme="light"] .story-content .segment.actions-open {
-  background: rgba(255,255,255,.28);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.55);
+  background: rgba(118,118,128,.075);
+  box-shadow:
+    inset 0 0 0 1px rgba(60,60,67,.09),
+    inset 0 1px 0 rgba(255,255,255,.72);
 }
 
 /* Segment Actions */
 .segment-actions {
-  position: absolute; z-index: 4; top: -14px; right: 0;
+  position: absolute; z-index: 4; top: 2px; right: 4px;
   display: flex; gap: 2px; padding: 4px;
   border-radius: var(--radius-pill);
   background: var(--glass-bg-thick);
   backdrop-filter: blur(24px) saturate(200%);
   -webkit-backdrop-filter: blur(24px) saturate(200%);
   box-shadow: var(--shadow-float),
+    0 5px 18px rgba(0,0,0,.12),
     inset 0 1px 0 var(--glass-highlight);
   border: 1px solid var(--glass-border);
   opacity: 0; visibility: hidden; transform: translateY(6px) scale(0.95);
   transition: .2s var(--ease-spring);
 }
+.segment.actions-bottom .segment-actions {
+  top: auto;
+  bottom: 2px;
+}
 .segment:hover .segment-actions,
 .segment:focus-within .segment-actions,
-.segment.actions-open .segment-actions {
+.segment.actions-open .segment-actions,
+.segment:has([data-confirming="true"]) .segment-actions {
   opacity: 1; visibility: visible; transform: none;
 }
 
@@ -139,14 +170,15 @@
   display: grid; place-items: center; width: 30px; height: 30px;
   border-radius: var(--radius-pill);
   color: var(--text-secondary); background: transparent;
-  transition: all .12s;
+  transition: width .36s var(--ease-fluid), padding .36s var(--ease-fluid),
+    background .24s, color .24s, transform .24s var(--ease-fluid);
 }
 .segment-action:hover { color: var(--text-primary); background: var(--glass-bg); }
 .segment-action.danger:hover { color: var(--red); background: var(--red-glass); }
 .segment-action svg { width: 15px; height: 15px; }
 
 .segment-action.confirming {
-  width: auto; min-width: 62px; padding: 0 12px;
+  width: 68px; min-width: 68px; padding: 0 12px;
   display: inline-flex; gap: 5px; align-items: center;
   color: #fff; background: var(--red);
   border-radius: var(--radius-pill);
@@ -267,12 +299,15 @@
   transition: all .12s var(--ease-out);
 }
 .round-btn:active { transform: scale(0.88); }
+.round-btn svg { width: 15px; height: 15px; stroke-width: 2.2; }
 
 .primary-round {
   width: 38px; height: 38px;
   color: #ffffff; background: var(--blue);
   box-shadow: 0 2px 8px rgba(10,132,255,0.3);
 }
+.primary-round svg { width: 17px; height: 17px; }
+.primary-round [data-lucide="play"] { transform: translateX(1px); }
 
 @media (hover: hover) {
   .round-btn:hover { background: var(--glass-bg-thick); }

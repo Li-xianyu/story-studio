@@ -43,16 +43,20 @@ export function renderChapterList() {
   }).join("") : "";
 }
 
-export function segmentHtml(segment) {
+export function segmentHtml(segment, speechOffset) {
   var content = escapeHtml(segment.content || "");
-  var paragraphs = content.split(/\n{2,}/).filter(Boolean);
+  var paragraphs = content.split(/\n\s*\n+/).filter(Boolean);
+  var offset = Number(speechOffset) || 0;
   var actions = segment.streaming ? "" : '<div class="segment-actions">' +
     '<button class="segment-action" data-segment-action="edit" title="\u7f16\u8f91\u539f\u6587"><i data-lucide="pencil"></i></button>' +
     '<button class="segment-action" data-segment-action="rewrite" title="\u91cd\u5199\u6b64\u6bb5"><i data-lucide="refresh-cw"></i></button>' +
-    '<button class="segment-action" data-segment-action="continue" title="\u4ece\u6b64\u5904\u7eed\u5199"><i data-lucide="corner-down-right"></i></button>' +
+    '<button class="segment-action" data-segment-action="insert" title="\u5728\u6b64\u5904\u63d2\u5199"><i data-lucide="between-horizontal-start"></i></button>' +
     '<button class="segment-action danger" data-segment-action="delete" title="\u5220\u9664\u6b64\u6bb5"><i data-lucide="trash-2"></i></button></div>';
   return '<div class="segment ' + (segment.streaming ? "streaming" : "") + '" data-segment-id="' + segment.id + '">' + actions +
-    paragraphs.map(function (paragraph) { return "<p>" + paragraph.replace(/\n/g, "<br>") + "</p>"; }).join("") + "</div>";
+    paragraphs.map(function (paragraph, index) {
+      return '<p class="speech-block" data-speech-index="' + (offset + index) + '">' +
+        paragraph.replace(/\n/g, "<br>") + "</p>";
+    }).join("") + "</div>";
 }
 
 export function renderStory(options) {
@@ -71,7 +75,12 @@ export function renderStory(options) {
   var welcomeMode = isPristineStory(story);
   document.body.classList.toggle("welcome-mode", welcomeMode);
   el.emptyState.classList.toggle("hidden", hasContent || hasStarted);
-  el.storyContent.innerHTML = chapter.segments.map(segmentHtml).join("");
+  var speechOffset = 0;
+  el.storyContent.innerHTML = chapter.segments.map(function (segment) {
+    var html = segmentHtml(segment, speechOffset);
+    speechOffset += String(segment.content || "").split(/\n\s*\n+/).filter(Boolean).length;
+    return html;
+  }).join("");
   if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
   el.storyTitle.textContent = story.title;
   var words = chapter.segments.reduce(function (sum, segment) { return sum + String(segment.content || "").length; }, 0);

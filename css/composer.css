@@ -122,8 +122,8 @@
   color: var(--text-secondary);
   background: transparent;
   font-size: 13px; font-weight: 500;
-  transition: width .28s var(--ease-fluid), transform .22s var(--ease-fluid),
-    background .22s var(--ease-fluid), box-shadow .22s var(--ease-fluid), color .22s;
+  transition: width .42s var(--ease-fluid), transform .28s var(--ease-fluid),
+    background .34s var(--ease-fluid), box-shadow .34s var(--ease-fluid), color .3s;
   overflow: hidden;
 }
 .mode-tab svg {
@@ -133,7 +133,8 @@
 .mode-tab span {
   max-width: 0; margin-left: 0;
   overflow: hidden; opacity: 0; white-space: nowrap;
-  transition: max-width .28s var(--ease-fluid), margin-left .28s var(--ease-fluid), opacity .16s;
+  transition: max-width .42s var(--ease-fluid), margin-left .42s var(--ease-fluid),
+    opacity .28s ease .08s;
 }
 .mode-tab.active {
   width: 112px;

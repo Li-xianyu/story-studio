@@ -83,9 +83,9 @@
 
       <section id="playerBar" class="player-bar" aria-hidden="true">
         <div class="playback-controls">
-          <button id="ttsPrevBtn" class="round-btn" title="上一段">‹</button>
-          <button id="ttsPlayBtn" class="round-btn primary-round" title="朗读或暂停">▶</button>
-          <button id="ttsNextBtn" class="round-btn" title="下一段">›</button>
+          <button id="ttsPrevBtn" class="round-btn" title="上一段" aria-label="上一段"><i data-lucide="skip-back"></i></button>
+          <button id="ttsPlayBtn" class="round-btn primary-round" title="开始朗读" aria-label="开始朗读"><i data-lucide="play"></i></button>
+          <button id="ttsNextBtn" class="round-btn" title="下一段" aria-label="下一段"><i data-lucide="skip-forward"></i></button>
         </div>
         <div class="playback-status">
           <strong id="playbackTitle">尚未开始朗读</strong>
@@ -250,7 +250,34 @@
         <div id="mimoTtsFields" hidden>
           <label>MiMo 接口<input id="ttsHost" placeholder="https://api.xiaomimimo.com/v1/chat/completions"></label>
           <label>MiMo Key<input id="ttsKey" type="password" autocomplete="off"></label>
-          <div class="two-columns"><label>模型<input id="ttsModel"></label><label>音色<input id="ttsVoice"></label></div>
+          <label>模型
+            <select id="ttsModel">
+              <option value="mimo-v2.5-tts">MiMo V2.5 TTS · 预置音色</option>
+            </select>
+          </label>
+          <div class="three-columns voice-selects">
+            <label>旁白音色
+              <select id="ttsNarratorVoice">
+                <option value="白桦">白桦 · 男声</option>
+                <option value="苏打">苏打 · 男声</option>
+                <option value="冰糖">冰糖 · 女声</option>
+                <option value="茉莉">茉莉 · 女声</option>
+              </select>
+            </label>
+            <label>男性角色
+              <select id="ttsMaleVoice">
+                <option value="苏打">苏打</option>
+                <option value="白桦">白桦</option>
+              </select>
+            </label>
+            <label>女性角色
+              <select id="ttsFemaleVoice">
+                <option value="冰糖">冰糖</option>
+                <option value="茉莉">茉莉</option>
+              </select>
+            </label>
+          </div>
+          <small class="field-note">MiMo 官方中文预置音色；隐藏朗读轨道会自动选择对应角色音色。</small>
         </div>
         <button id="ttsTestBtn" type="button" class="quiet-btn wide">测试朗读</button>
       </section>
@@ -271,6 +298,20 @@
       <div class="modal-head"><div><strong>编辑正文</strong><small>直接修改这一段，不会调用模型</small></div><button type="button" class="icon-btn" data-close-dialog="segmentEditDialog" title="关闭" aria-label="关闭"><i data-lucide="x"></i></button></div>
       <textarea id="segmentEditor" rows="16"></textarea>
       <div class="modal-actions"><button type="button" class="quiet-btn" data-close-dialog="segmentEditDialog">取消</button><button id="saveSegmentBtn" value="default" class="primary-btn">保存修改</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="rewriteChoiceDialog" class="modal confirm-modal">
+    <form method="dialog">
+      <div class="modal-head">
+        <div><strong>如何重写？</strong><small>这段正文保存了生成时的用户输入</small></div>
+        <button type="button" class="icon-btn" data-close-dialog="rewriteChoiceDialog" title="关闭" aria-label="关闭"><i data-lucide="x"></i></button>
+      </div>
+      <p id="rewriteSourcePreview" class="confirm-copy"></p>
+      <div class="rewrite-choice-actions">
+        <button id="rewriteFreeBtn" type="button" class="quiet-btn">仅根据上文自由重写</button>
+        <button id="rewriteFromInputBtn" type="button" class="primary-btn">按原输入重写</button>
+      </div>
     </form>
   </dialog>
 

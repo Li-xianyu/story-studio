@@ -40,7 +40,11 @@
   .reader-header { inset-inline: 8px; }
   .header-bubble-left { max-width: calc(100vw - 154px); padding-left: 5px; }
   .reader-viewport {
-    padding: 82px 20px calc(var(--composer-height, 200px) + 100px);
+    --reader-bottom-space: calc(var(--composer-height, 200px) + 30px);
+    padding: 82px 20px var(--reader-bottom-space);
+  }
+  body.audio-panel-open .reader-viewport {
+    --reader-bottom-space: calc(var(--composer-height, 200px) + 112px);
   }
   .story-content { font-size: 17px; line-height: 1.92; }
 
@@ -87,7 +91,7 @@
 
   .segment-actions {
     position: static; justify-content: flex-end;
-    width: fit-content; margin: -10px 0 10px auto;
+    width: fit-content; margin: 0 0 4px auto;
   }
 
   .chapter-row-actions { opacity: 1; }
@@ -103,7 +107,8 @@
   }
   .mobile-backdrop.show { opacity: 1; visibility: visible; }
 
-  .two-columns { grid-template-columns: 1fr; }
+  .two-columns, .three-columns { grid-template-columns: 1fr; }
+  .rewrite-choice-actions { grid-template-columns: 1fr; }
 
   /* 欢迎页保留汉堡按钮 */
   .welcome-mode .reader-header {
