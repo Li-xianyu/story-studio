@@ -95,8 +95,14 @@ export function renderStory(options) {
   }
 }
 
+function syncThemeColor() {
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = settings.theme === "light" ? "#f7f7f9" : "#000000";
+}
+
 export function renderControls() {
   document.documentElement.dataset.theme = settings.theme;
+  syncThemeColor();
   var story = getStory();
   if (!story) return;
   el.povDisplay.textContent = story.pov || "\u7b2c\u4e09\u4eba\u79f0";

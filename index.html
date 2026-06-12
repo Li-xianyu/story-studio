@@ -18,7 +18,11 @@
     (function () {
       try {
         var saved = JSON.parse(localStorage.getItem("floating-story-studio-settings-v1"));
-        if (saved && saved.theme) document.documentElement.dataset.theme = saved.theme;
+        if (saved && saved.theme) {
+          document.documentElement.dataset.theme = saved.theme;
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.content = saved.theme === "light" ? "#f7f7f9" : "#000000";
+        }
       } catch (_) {}
     })();
   </script>

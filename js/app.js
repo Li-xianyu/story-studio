@@ -45,7 +45,22 @@ function syncComposerHeight() {
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
   window.addEventListener("load", function () {
-    navigator.serviceWorker.register("./sw.js").catch(function (error) {
+    navigator.serviceWorker.register("./sw.js").then(function (reg) {
+      if (reg.active && !navigator.serviceWorker.controller) return;
+      reg.addEventListener("updatefound", function () {
+        var newSW = reg.installing;
+        newSW.addEventListener("statechange", function () {
+          if (newSW.state === "installed" && navigator.serviceWorker.controller) {
+            var toast = document.getElementById("toast");
+            if (toast) {
+              toast.textContent = "新版本已就绪，正在刷新…";
+              toast.classList.add("show");
+            }
+            setTimeout(function () { window.location.reload(); }, 1500);
+          }
+        });
+      });
+    }).catch(function (error) {
       console.warn("[PWA] Service Worker 注册失败", error);
     });
   });
