@@ -182,13 +182,27 @@
   border-radius: var(--radius-pill);
   color: var(--text-primary);
   background: var(--glass-bg-thick);
+  border: 1px solid var(--glass-border);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-float);
   transition: all .2s var(--ease-out);
+}
+.exit-focus-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: var(--glass-edge-shadow);
 }
 .exit-focus-btn:hover { background: rgba(255,255,255,.12); }
 .exit-focus-btn svg { width: 19px; height: 19px; stroke-width: 2; }
+[data-theme="light"] .exit-focus-btn {
+  color: rgba(0,0,0,.82);
+  background: rgba(255,255,255,.42);
+  border-color: rgba(255,255,255,.82);
+}
 
 /* === iOS Toggle === */
 .switch-label {
@@ -240,6 +254,15 @@
     inset 0 1px 0 rgba(255,255,255,.08);
   border: 1px solid rgba(255,255,255,.08);
 }
+.modal::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: var(--glass-edge-shadow);
+}
 .modal[open] {
   animation: modal-enter .22s var(--ease-fluid);
 }
@@ -264,6 +287,13 @@
 .modal-actions {
   display: flex; justify-content: flex-end; align-items: center; gap: 8px;
   padding-top: 8px;
+}
+.modal-actions .primary-btn,
+.modal-actions .quiet-btn {
+  min-height: 40px;
+  padding: 8px 16px;
+  font-size: 14px;
+  line-height: 1;
 }
 #settingsStatus {
   margin-right: auto; color: var(--text-tertiary); font-size: 12px;

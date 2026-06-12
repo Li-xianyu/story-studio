@@ -162,4 +162,10 @@ export function closeMobilePanels() {
   if (libraryToggle && window.matchMedia("(max-width: 760px)").matches) {
     libraryToggle.setAttribute("aria-expanded", "false");
   }
+  if (window.matchMedia("(min-width: 761px)").matches) {
+    localStorage.setItem("floating-story-studio-panels-v1", JSON.stringify({
+      libraryOpen: !document.body.classList.contains("library-collapsed"),
+      controlsOpen: false,
+    }));
+  }
 }

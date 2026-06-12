@@ -2,7 +2,7 @@
    浮光剧场 · Import / Export
    ============================================================ */
 
-import { state, el, getStory, saveState, createStoryData, isPristineStory } from "../core/state.js";
+import { state, el, getStory, saveState, createStoryData, isPristineStory, normalizePov } from "../core/state.js";
 import { uid, nowIso, toast } from "../core/utils.js";
 import { renderAll } from "../ui/renderer.js";
 
@@ -30,6 +30,7 @@ export async function importFile(file) {
     if (!story || !Array.isArray(story.chapters)) throw new Error("\u4e0d\u662f\u6709\u6548\u7684\u6545\u4e8b\u6587\u4ef6");
     story.id = uid("story");
     story.title = story.title || file.name.replace(/\.[^.]+$/, "");
+    story.pov = normalizePov(story.pov);
     state.stories.push(story);
     state.activeStoryId = story.id;
     state.activeChapterId = story.chapters[0].id;

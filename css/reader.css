@@ -37,10 +37,10 @@
 }
 .header-bubble::before {
   content: "";
-  position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
-  background: linear-gradient(90deg, transparent, var(--glass-highlight), transparent);
-  border-radius: 1px;
+  position: absolute; inset: 0;
+  border-radius: inherit;
   pointer-events: none;
+  box-shadow: var(--glass-edge-shadow);
 }
 
 .header-bubble-left {
@@ -81,7 +81,8 @@
   position: relative; min-width: 0; min-height: 0; height: 100%;
   overflow: hidden auto; overscroll-behavior: contain;
   scroll-behavior: smooth;
-  --reader-bottom-space: calc(var(--composer-height, 204px) + 30px);
+  --segment-action-safe-space: 22px;
+  --reader-bottom-space: calc(var(--composer-height, 204px) + 30px + var(--segment-action-safe-space));
   padding:
     76px
     max(24px, calc((100% - var(--reader-width)) / 2))
@@ -89,7 +90,8 @@
   transition: padding-bottom .32s var(--ease-fluid);
 }
 body.audio-panel-open .reader-viewport {
-  --reader-bottom-space: calc(var(--composer-height, 204px) + 94px);
+  --segment-action-safe-space: 44px;
+  --reader-bottom-space: calc(var(--composer-height, 204px) + 94px + var(--segment-action-safe-space));
 }
 
 /* === Story Content === */
@@ -100,6 +102,14 @@ body.audio-panel-open .reader-viewport {
   font-size: 18px; line-height: 2; letter-spacing: .02em;
   color: var(--text-primary);
 }
+.story-content ::selection {
+  color: #fff;
+  background: rgba(142,142,147,.38);
+}
+[data-theme="light"] .story-content ::selection {
+  color: rgba(0,0,0,.9);
+  background: rgba(94,104,120,.18);
+}
 .story-content p { margin: 0 0 1.3em; white-space: pre-wrap; }
 
 .story-content .speech-block {
@@ -109,9 +119,6 @@ body.audio-panel-open .reader-viewport {
   cursor: default;
   transition: background .2s var(--ease-out), box-shadow .2s var(--ease-out);
 }
-.story-content .speech-block:active {
-  background: rgba(120,120,128,.055);
-}
 .story-content .speech-block.is-reading {
   background: rgba(120,120,128,.08);
   box-shadow: inset 2px 0 0 rgba(0,0,0,.24);
@@ -119,30 +126,42 @@ body.audio-panel-open .reader-viewport {
 
 .story-content .segment {
   position: relative;
-  margin-inline: -14px;
-  padding: 0 14px;
+  margin: 0 -14px;
+  padding: 20px 14px;
   border-radius: var(--radius-md);
   transition: background .18s var(--ease-out), box-shadow .18s var(--ease-out);
 }
 .story-content .segment + .segment { margin-top: 0; }
-.story-content .segment:hover,
 .story-content .segment.actions-open {
   background: rgba(255,255,255,.075);
   box-shadow:
     inset 0 0 0 1px rgba(255,255,255,.09),
     inset 0 1px 0 rgba(255,255,255,.06);
 }
-[data-theme="light"] .story-content .segment:hover,
 [data-theme="light"] .story-content .segment.actions-open {
   background: rgba(118,118,128,.075);
   box-shadow:
     inset 0 0 0 1px rgba(60,60,67,.09),
     inset 0 1px 0 rgba(255,255,255,.72);
 }
+@media (hover: hover) and (pointer: fine) {
+  .story-content .segment:hover {
+    background: rgba(255,255,255,.075);
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,.09),
+      inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  [data-theme="light"] .story-content .segment:hover {
+    background: rgba(118,118,128,.075);
+    box-shadow:
+      inset 0 0 0 1px rgba(60,60,67,.09),
+      inset 0 1px 0 rgba(255,255,255,.72);
+  }
+}
 
 /* Segment Actions */
 .segment-actions {
-  position: absolute; z-index: 4; top: 2px; right: 4px;
+  position: absolute; z-index: 4; top: 0; right: 4px;
   display: flex; gap: 2px; padding: 4px;
   border-radius: var(--radius-pill);
   background: var(--glass-bg-thick);
@@ -152,18 +171,30 @@ body.audio-panel-open .reader-viewport {
     0 5px 18px rgba(0,0,0,.12),
     inset 0 1px 0 var(--glass-highlight);
   border: 1px solid var(--glass-border);
-  opacity: 0; visibility: hidden; transform: translateY(6px) scale(0.95);
+  opacity: 0; visibility: hidden;
+  transform: translateY(calc(-50% + 6px)) scale(0.95);
   transition: .2s var(--ease-spring);
 }
 .segment.actions-bottom .segment-actions {
   top: auto;
-  bottom: 2px;
+  bottom: 0;
+  transform: translateY(calc(50% - 6px)) scale(0.95);
 }
-.segment:hover .segment-actions,
-.segment:focus-within .segment-actions,
 .segment.actions-open .segment-actions,
 .segment:has([data-confirming="true"]) .segment-actions {
-  opacity: 1; visibility: visible; transform: none;
+  opacity: 1; visibility: visible; transform: translateY(-50%);
+}
+.segment.actions-bottom.actions-open .segment-actions,
+.segment.actions-bottom:has([data-confirming="true"]) .segment-actions {
+  transform: translateY(50%);
+}
+@media (hover: hover) and (pointer: fine) {
+  .segment:hover .segment-actions {
+    opacity: 1; visibility: visible; transform: translateY(-50%);
+  }
+  .segment.actions-bottom:hover .segment-actions {
+    transform: translateY(50%);
+  }
 }
 
 .segment-action {
@@ -175,6 +206,7 @@ body.audio-panel-open .reader-viewport {
 }
 .segment-action:hover { color: var(--text-primary); background: var(--glass-bg); }
 .segment-action.danger:hover { color: var(--red); background: var(--red-glass); }
+.segment-action.copy-failed { color: var(--red); }
 .segment-action svg { width: 15px; height: 15px; }
 
 .segment-action.confirming {
@@ -238,9 +270,10 @@ body.audio-panel-open .reader-viewport {
 }
 .audio-float-btn::before {
   content: "";
-  position: absolute; top: 0; left: 15%; right: 15%; height: 1px;
-  background: linear-gradient(90deg, transparent, var(--glass-highlight), transparent);
-  border-radius: 1px;
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: var(--glass-edge-shadow);
 }
 .audio-float-btn:hover,
 .audio-float-btn.active {
@@ -273,9 +306,10 @@ body.audio-panel-open .reader-viewport {
 }
 .player-bar::before {
   content: "";
-  position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
-  background: linear-gradient(90deg, transparent, var(--glass-highlight), transparent);
-  border-radius: 1px;
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: var(--glass-edge-shadow);
 }
 .player-bar.open {
   opacity: 1; visibility: visible; pointer-events: auto;

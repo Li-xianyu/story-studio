@@ -8,10 +8,47 @@ import { renderAll } from "./ui/renderer.js";
 import { bindEvents } from "./ui/events.js";
 import { initCustomSelects, syncAll } from "./ui/custom-select.js";
 
+var PANEL_STATE_KEY = "floating-story-studio-panels-v1";
+
+function restoreDesktopPanelState() {
+  if (!window.matchMedia("(min-width: 761px)").matches) return;
+  document.documentElement.classList.add("restoring-panels");
+  var saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(PANEL_STATE_KEY));
+  } catch (_) {}
+  var libraryOpen = !saved || saved.libraryOpen !== false;
+  var controlsOpen = Boolean(saved && saved.controlsOpen);
+  document.body.classList.toggle("library-collapsed", !libraryOpen);
+  document.getElementById("libraryToggle").setAttribute("aria-expanded", libraryOpen ? "true" : "false");
+  document.getElementById("controlsPanel").classList.toggle("open", controlsOpen);
+  document.getElementById("controlsPanel").setAttribute("aria-hidden", controlsOpen ? "false" : "true");
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () {
+      document.documentElement.classList.remove("restoring-panels");
+    });
+  });
+}
+
+function resetMemoryCardState() {
+  document.querySelectorAll(".memory-card").forEach(function (card) {
+    card.open = false;
+  });
+}
+
 function syncComposerHeight() {
   var composer = document.querySelector(".composer");
   if (!composer) return;
   document.documentElement.style.setProperty("--composer-height", composer.getBoundingClientRect().height + "px");
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("./sw.js").catch(function (error) {
+      console.warn("[PWA] Service Worker 注册失败", error);
+    });
+  });
 }
 
 function bindLiquidGlass() {
@@ -59,6 +96,8 @@ function bindLiquidGlass() {
 function init() {
   cacheElements();
   loadState();
+  resetMemoryCardState();
+  restoreDesktopPanelState();
   initCustomSelects();
   bindEvents();
   renderAll();
@@ -74,6 +113,7 @@ function init() {
   if (window.lucide && typeof window.lucide.createIcons === "function") {
     window.lucide.createIcons();
   }
+  registerServiceWorker();
 }
 
 document.addEventListener("DOMContentLoaded", init);

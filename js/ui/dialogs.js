@@ -4,7 +4,7 @@
 
 import { state, settings, el, saveSettings, getStory } from "../core/state.js";
 import { safeParse, toast } from "../core/utils.js";
-import { renderAll } from "./renderer.js";
+import { renderAll, renderStory, renderChapterList } from "./renderer.js";
 import { populateVoices, speakText } from "../core/tts.js";
 
 export function openSettings(message) {
@@ -19,7 +19,13 @@ export function fillSettingsForm() {
     if (el[key]) el[key].value = settings[key];
   });
   populateVoices();
+  syncCustomSelect(el.ttsProvider);
   syncTtsProviderFields();
+}
+
+function syncCustomSelect(select) {
+  var host = select && select.closest("custom-select");
+  if (host && host._csInstance) host._csInstance.syncDisplay();
 }
 
 export function syncTtsProviderFields() {
@@ -61,6 +67,8 @@ export function readMoyuSettings() {
     el.ttsFemaleVoice.value = moyu.tts.femaleVoice || settings.ttsFemaleVoice;
     el.systemVoice.value = moyu.tts.systemVoice || "";
     el.systemPitch.value = moyu.tts.systemPitch || 1;
+    syncCustomSelect(el.ttsProvider);
+    syncCustomSelect(el.systemVoice);
     syncTtsProviderFields();
   }
   toast(el.toast, "\u5df2\u8bfb\u53d6 MOYU \u5f53\u524d\u914d\u7f6e");
@@ -84,8 +92,11 @@ export function saveSegmentEdit() {
   found.segment.speechTrack = [];
   found.segment.editedAt = new Date().toISOString();
   saveState();
-  renderAll();
+  renderStory();
+  renderChapterList();
   el.segmentEditDialog.close();
+  state.editingSegmentId = "";
+  toast(el.toast, "\u6b63\u6587\u5df2\u66f4\u65b0");
 }
 
 export function createUndoSnapshot(message) {

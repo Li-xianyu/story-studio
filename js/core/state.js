@@ -44,9 +44,9 @@ export var el = {};
 var ids = [
   "topLoader", "libraryPanel", "controlsPanel", "mobileBackdrop", "storyList", "chapterList", "branchList",
   "storyTitle", "storyMeta", "storyContent", "emptyState", "readerViewport", "composerInput", "sendBtn", "stopBtn",
-  "statusText", "setupDialog", "setupForm", "setupTitle", "setupPrompt", "setupRole", "setupGenre",
+  "statusText", "setupDialog", "setupForm", "setupTitle", "setupPrompt", "setupRole", "setupGenre", "setupPov",
   "settingsDialog", "settingsForm", "memoryDialog", "memoryDialogTitle", "memoryEditor", "toast",
-  "povSelect", "lengthSelect", "styleInput", "playerRoleInput", "premiseInput", "autoContinueToggle", "autoTtsToggle",
+  "povDisplay", "lengthSelect", "styleInput", "playerRoleInput", "premiseInput", "autoContinueToggle", "autoTtsToggle",
   "speechRate", "playbackTitle", "playbackProgress", "ttsPlayBtn", "playerBar", "audioPanelToggle", "apiHost", "apiKey", "apiModel",
   "temperature", "ttsProvider", "systemVoice", "systemPitch", "ttsHost", "ttsKey", "ttsModel",
   "ttsNarratorVoice", "ttsMaleVoice", "ttsFemaleVoice",
@@ -61,7 +61,13 @@ export function cacheElements() {
   ids.forEach(function (id) { el[id] = document.getElementById(id); });
 }
 
-export function createStoryData(title, premise, playerRole, genre) {
+export function normalizePov(value) {
+  if (value === "第一人称") return "第一人称";
+  if (value === "第二人称") return "第二人称";
+  return "第三人称";
+}
+
+export function createStoryData(title, premise, playerRole, genre, pov) {
   var chapterId = uid("chapter");
   return {
     id: uid("story"),
@@ -69,7 +75,7 @@ export function createStoryData(title, premise, playerRole, genre) {
     premise: premise || "",
     genre: genre || "",
     playerRole: playerRole || "",
-    pov: "第三人称限知",
+    pov: normalizePov(pov),
     style: "沉浸、细腻、克制，重视动作与对白",
     length: "medium",
     autoContinue: false,
@@ -137,12 +143,20 @@ export function loadState() {
     state.activeStoryId = saved.activeStoryId || "";
     state.activeChapterId = saved.activeChapterId || "";
   }
+  var povMigrated = false;
+  state.stories.forEach(function (story) {
+    var normalized = normalizePov(story.pov);
+    if (story.pov !== normalized) {
+      story.pov = normalized;
+      povMigrated = true;
+    }
+  });
   var storyCountBeforeMigration = state.stories.length;
   state.stories = state.stories.filter(function (story) {
     return !(story.title === "我的第一部故事" && isPristineStory(story));
   });
   ensureActiveSelection();
-  if (state.stories.length !== storyCountBeforeMigration) saveState();
+  if (state.stories.length !== storyCountBeforeMigration || povMigrated) saveState();
 }
 
 export function saveState() {

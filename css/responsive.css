@@ -4,13 +4,12 @@
 
 /* === Focus Mode === */
 .focus-mode .library-panel, .focus-mode .reader-header { display: none; }
-.focus-mode .app-shell { grid-template-columns: 1fr; }
 .focus-mode .reader-shell { grid-rows: minmax(0, 1fr) auto; }
 .focus-mode .exit-focus-btn { display: grid; place-items: center; }
 
 /* === Tablet === */
 @media (max-width: 1100px) {
-  .app-shell { grid-template-columns: 230px minmax(0, 1fr); }
+  .library-panel { width: 250px; }
   .composer { width: min(720px, calc(100% - 28px)); }
 }
 
@@ -19,6 +18,7 @@
   .app-shell { display: block; isolation: auto; }
   .library-collapsed .library-panel {
     opacity: 1;
+    visibility: visible;
     pointer-events: auto;
     transform: translateX(-105%);
   }
@@ -26,13 +26,18 @@
   .library-panel {
     position: fixed; z-index: 100; inset: 0 auto 0 0;
     width: min(88vw, 300px);
+    margin: 8px;
+    height: calc(100% - 16px);
     transform: translateX(-105%);
     transition: transform .35s var(--ease-fluid);
     box-shadow: var(--shadow-lg);
-    background: var(--bg-surface);
   }
   .library-panel.open { transform: none; }
   .controls-panel {
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    height: auto;
     background: var(--bg-elevated);
   }
 
@@ -40,13 +45,22 @@
   .reader-header { inset-inline: 8px; }
   .header-bubble-left { max-width: calc(100vw - 154px); padding-left: 5px; }
   .reader-viewport {
-    --reader-bottom-space: calc(var(--composer-height, 200px) + 30px);
+    --segment-action-safe-space: 22px;
+    --reader-bottom-space: calc(var(--composer-height, 200px) + 30px + var(--segment-action-safe-space));
     padding: 82px 20px var(--reader-bottom-space);
   }
   body.audio-panel-open .reader-viewport {
-    --reader-bottom-space: calc(var(--composer-height, 200px) + 112px);
+    --segment-action-safe-space: 44px;
+    --reader-bottom-space: calc(var(--composer-height, 200px) + 112px + var(--segment-action-safe-space));
   }
   .story-content { font-size: 17px; line-height: 1.92; }
+  .story-content,
+  .story-content .speech-block {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+  }
 
   .audio-float-btn {
     top: calc(max(12px, env(safe-area-inset-top)) + 56px);
@@ -93,8 +107,20 @@
   .composer-tools { overflow: visible; }
 
   .segment-actions {
-    position: static; justify-content: flex-end;
-    width: fit-content; margin: 0 0 4px auto;
+    position: absolute;
+    width: max-content;
+    margin: 0;
+  }
+  .segment.actions-fixed .segment-actions {
+    position: fixed;
+    top: calc(max(10px, env(safe-area-inset-top)) + 58px);
+    right: 10px;
+    bottom: auto;
+    z-index: 80;
+    transform: none;
+  }
+  .segment:not(.actions-open) .segment-actions {
+    pointer-events: none;
   }
 
   .chapter-row-actions { opacity: 1; }

@@ -49,6 +49,7 @@ export function segmentHtml(segment, speechOffset, isLast) {
   var offset = Number(speechOffset) || 0;
   var actions = segment.streaming ? "" : '<div class="segment-actions">' +
     '<button class="segment-action" data-segment-action="readFromHere" title="\u4ece\u6b64\u5904\u5f00\u59cb\u8bfb"><i data-lucide="play"></i></button>' +
+    '<button class="segment-action" data-segment-action="copy" title="\u590d\u5236\u672c\u6bb5"><i data-lucide="copy"></i></button>' +
     '<button class="segment-action" data-segment-action="edit" title="\u7f16\u8f91\u539f\u6587"><i data-lucide="pencil"></i></button>' +
     '<button class="segment-action" data-segment-action="rewrite" title="\u91cd\u5199\u6b64\u6bb5"><i data-lucide="refresh-cw"></i></button>' +
     (isLast
@@ -98,7 +99,7 @@ export function renderControls() {
   document.documentElement.dataset.theme = settings.theme;
   var story = getStory();
   if (!story) return;
-  el.povSelect.value = story.pov || "\u7b2c\u4e09\u4eba\u79f0\u9650\u77e5";
+  el.povDisplay.textContent = story.pov || "\u7b2c\u4e09\u4eba\u79f0";
   el.lengthSelect.value = story.length || "medium";
   el.styleInput.value = story.style || "";
   el.playerRoleInput.value = story.playerRole || "";

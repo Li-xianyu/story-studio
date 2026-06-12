@@ -6,7 +6,7 @@ import { state, settings, el, getStory, getChapter, touchStory, saveState, saveS
 import { uid, nowIso, toast, setBusy } from "../core/utils.js";
 import { renderAll, renderStory, renderStoryList, renderChapterList, renderControls, renderMemory, renderBranches, segmentHtml } from "./renderer.js";
 import { openSettings, saveSettingsForm, readMoyuSettings, syncTtsProviderFields, openSegmentEditor, saveSegmentEdit, createUndoSnapshot, undoLastChange } from "./dialogs.js";
-import { speakText, stopSpeech, toggleSpeech, playFromIndex, playChapterFromIndex, playChapterFromSegment, populateVoices } from "../core/tts.js";
+import { speakText, stopSpeech, toggleSpeech, playFromIndex, playChapterFromIndex, playChapterFromSegment, toggleChapterFromSegment, populateVoices } from "../core/tts.js";
 import { newChapter, renameChapter, deleteChapter, renameStory, deleteStory, saveBranch, restoreBranch, deleteSegment, rewriteFromSegment, closeMobilePanels } from "../story/story.js";
 import { summarizeMemory, prepareChapterMemory, recentNarrative, looksNarrativeIncomplete, getLengthMaxTokens, buildSystemPrompt } from "../story/memory.js";
 import { exportStory, importFile } from "../story/import-export.js";
@@ -56,6 +56,18 @@ function beginInlineRename(row, currentName, onCommit, onCancel) {
   });
 }
 
+function rolePovInstruction(story) {
+  if (story.pov === "第一人称") {
+    return "本次正文必须继续使用第一人称叙述。把用户输入小说化，但不要逐句照抄，也不得切换为第二或第三人称。";
+  }
+  if (story.pov === "第二人称") {
+    return "本次正文必须使用“你”指代用户扮演的核心视角角色。用户输入中的“我”应改写为“你”，不得切换为第一或第三人称。";
+  }
+  return "本次正文必须使用第三人称叙述。禁止把用户输入中的“我”原样作为叙述主体；应改写为角色“" +
+    (story.playerRole || "当前主角") +
+    "”的姓名或符合上下文的第三人称代词，不得切换为第一或第二人称。";
+}
+
 function buildRoleInstruction(story, value) {
   return [
     "用户以角色“" + (story.playerRole || "当前主角") + "”提供了一段剧情草稿：",
@@ -63,9 +75,7 @@ function buildRoleInstruction(story, value) {
     "",
     "请把这段草稿视为角色已经做出或说出的事实，而不是可以原样复制进正文的第一人称文本。先解析“我”所指的角色，再改写成可直接接在前文之后的小说正文，随后描写环境和其他人物的自然反应。",
     "当前叙事视角由设置明确指定为“" + story.pov + "”，只能服从该设置，不得根据用户输入中的“我”或前文措辞自行改变人称。",
-    story.pov === "第一人称"
-      ? "本次正文使用第一人称叙述，但仍需把用户输入改写为成熟小说正文，不得逐句照抄。"
-      : "本次正文禁止把用户输入中的“我”原样作为叙述主体；必须改写为角色“" + (story.playerRole || "当前主角") + "”的姓名或符合上下文的第三人称代词。例如用户说“我推开门”，正文应写成“" + (story.playerRole || "他/她") + "推开了门”或同义的第三人称描写。",
+    rolePovInstruction(story),
     "玩家角色的控制权属于用户。只允许呈现本次输入已经明确写出的动作、台词和意图；禁止替玩家角色追加新的动作、台词、心理活动、判断、承诺、决定或下一步计划。",
     "不要为了推进故事而擅自引入新人物、新线索、突发事件、冲突升级或新的剧情分支。重点描写当前场景的空间、光线、声音、气味与氛围，细化已经发生的动作神态，并让在场其他人物针对用户明确行为作出直接、克制且符合人物逻辑的反应。",
     "如果用户向某人提问，最多写到对方的回答、犹豫或可观察反应；不要继续替玩家角色追问、表态或采取下一步行动。应在自然等待用户继续输入的位置停下。",
@@ -392,6 +402,16 @@ function openMobilePanel(name) {
   el.mobileBackdrop.classList.add("show");
 }
 
+var PANEL_STATE_KEY = "floating-story-studio-panels-v1";
+
+function saveDesktopPanelState() {
+  if (!window.matchMedia("(min-width: 761px)").matches) return;
+  localStorage.setItem(PANEL_STATE_KEY, JSON.stringify({
+    libraryOpen: !document.body.classList.contains("library-collapsed"),
+    controlsOpen: el.controlsPanel.classList.contains("open"),
+  }));
+}
+
 function setLibraryOpen(open) {
   var mobile = window.matchMedia("(max-width: 760px)").matches;
   if (mobile) {
@@ -399,8 +419,21 @@ function setLibraryOpen(open) {
     else closeMobilePanels();
   } else {
     document.body.classList.toggle("library-collapsed", !open);
+    saveDesktopPanelState();
   }
   document.getElementById("libraryToggle").setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+function setControlsOpen(open) {
+  if (window.matchMedia("(max-width: 760px)").matches) {
+    if (open) openMobilePanel("controls");
+    else closeMobilePanels();
+    return;
+  }
+  el.controlsPanel.classList.toggle("open", open);
+  el.controlsPanel.setAttribute("aria-hidden", open ? "false" : "true");
+  if (!open && el.controlsPanel.contains(document.activeElement)) document.activeElement.blur();
+  saveDesktopPanelState();
 }
 
 function setAudioPanelOpen(open) {
@@ -432,12 +465,41 @@ function syncSegmentActionPlacement(segmentNode) {
   if (!segmentNode) return;
   var viewportRect = el.readerViewport.getBoundingClientRect();
   var segmentRect = segmentNode.getBoundingClientRect();
-  var fullyVisible = segmentRect.top >= viewportRect.top + 8 &&
-    segmentRect.bottom <= viewportRect.bottom - 8;
-  segmentNode.classList.toggle(
-    "actions-bottom",
-    !fullyVisible && segmentRect.top < viewportRect.top + 8
-  );
+  var topVisible = segmentRect.top >= viewportRect.top + 8 &&
+    segmentRect.top <= viewportRect.bottom - 48;
+  var bottomVisible = segmentRect.bottom <= viewportRect.bottom - 8 &&
+    segmentRect.bottom >= viewportRect.top + 48;
+  segmentNode.classList.toggle("actions-bottom", !topVisible && bottomVisible);
+  segmentNode.classList.toggle("actions-fixed", !topVisible && !bottomVisible);
+}
+
+async function copySegmentContent(segmentId, button) {
+  var chapter = getChapter();
+  var segment = chapter && chapter.segments.find(function (item) { return item.id === segmentId; });
+  if (!segment) return;
+  var succeeded = false;
+  try {
+    await navigator.clipboard.writeText(segment.content || "");
+    succeeded = true;
+  } catch (_) {
+    var textarea = document.createElement("textarea");
+    textarea.value = segment.content || "";
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    succeeded = document.execCommand("copy");
+    textarea.remove();
+  }
+  button.innerHTML = '<i data-lucide="' + (succeeded ? "check" : "circle-x") + '"></i>';
+  button.classList.toggle("copy-failed", !succeeded);
+  if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+  clearTimeout(Number(button.dataset.feedbackTimer) || 0);
+  button.dataset.feedbackTimer = String(setTimeout(function () {
+    button.innerHTML = '<i data-lucide="copy"></i>';
+    button.classList.remove("copy-failed");
+    if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+  }, 3000));
 }
 
 function applyStoryControl(field, value) {
@@ -515,7 +577,9 @@ export function bindEvents() {
     var open = mobile ? !el.libraryPanel.classList.contains("open") : document.body.classList.contains("library-collapsed");
     setLibraryOpen(open);
   });
-  document.getElementById("controlsBtn").addEventListener("click", function () { openMobilePanel("controls"); });
+  document.getElementById("controlsBtn").addEventListener("click", function () {
+    setControlsOpen(!el.controlsPanel.classList.contains("open"));
+  });
   el.audioPanelToggle.addEventListener("click", function () {
     setAudioPanelOpen(!el.playerBar.classList.contains("open"));
   });
@@ -524,7 +588,7 @@ export function bindEvents() {
   document.querySelectorAll("[data-close-panel]").forEach(function (button) {
     button.addEventListener("click", function () {
       if (button.dataset.closePanel === "library") setLibraryOpen(false);
-      else closeMobilePanels();
+      else setControlsOpen(false);
     });
   });
   document.querySelectorAll("[data-close-dialog]").forEach(function (button) {
@@ -642,10 +706,8 @@ export function bindEvents() {
       event.stopPropagation();
       var segmentId = segmentNode.dataset.segmentId;
       var action = actionButton.dataset.segmentAction;
-      if (action === "readFromHere") {
-        var firstBlock = segmentNode.querySelector(".speech-block");
-        if (firstBlock) { var idx = Number(firstBlock.dataset.speechIndex); if (Number.isFinite(idx)) playChapterFromIndex(idx); }
-      }
+      if (action === "readFromHere") toggleChapterFromSegment(segmentId);
+      if (action === "copy") copySegmentContent(segmentId, actionButton);
       if (action === "edit") openSegmentEditor(segmentId);
       if (action === "rewrite") requestSegmentRewrite(segmentId);
       if (action === "insert") insertAfterSegment(segmentId);
@@ -655,31 +717,106 @@ export function bindEvents() {
       }
       return;
     }
-    if (segmentNode && window.matchMedia("(max-width: 760px)").matches) {
-      syncSegmentActionPlacement(segmentNode);
-      el.storyContent.querySelectorAll(".segment.actions-open").forEach(function (node) {
-        if (node !== segmentNode) node.classList.remove("actions-open");
-      });
-      segmentNode.classList.toggle("actions-open");
-    }
   });
   el.storyContent.addEventListener("pointerover", function (event) {
-    syncSegmentActionPlacement(event.target.closest("[data-segment-id]"));
+    if (window.matchMedia("(hover: hover)").matches) {
+      syncSegmentActionPlacement(event.target.closest(".speech-block") &&
+        event.target.closest("[data-segment-id]"));
+    }
   });
   el.readerViewport.addEventListener("scroll", function () {
     var activeSegment = el.storyContent.querySelector(".segment:hover, .segment.actions-open");
     if (activeSegment) syncSegmentActionPlacement(activeSegment);
   }, { passive: true });
-  el.storyContent.addEventListener("dblclick", function (event) {
-    var paragraph = event.target.closest(".speech-block");
-    if (!paragraph) return;
-    var index = Number(paragraph.dataset.speechIndex);
+  var longPressTimer = 0;
+  var longPressStart = null;
+  var longPressTriggered = false;
+  var lastMobileTap = null;
+
+  function playParagraphFromNode(paragraph) {
+    if (!state.tts.playing && !el.playerBar.classList.contains("open")) return;
+    var index = Number(paragraph && paragraph.dataset.speechIndex);
     if (!Number.isFinite(index)) return;
     window.getSelection().removeAllRanges();
     playChapterFromIndex(index);
+  }
+
+  el.storyContent.addEventListener("pointerdown", function (event) {
+    if (!window.matchMedia("(max-width: 760px)").matches || event.pointerType === "mouse") return;
+    var block = event.target.closest(".speech-block");
+    var segmentNode = event.target.closest("[data-segment-id]");
+    if (!segmentNode) return;
+    longPressTriggered = false;
+    longPressStart = {
+      x: event.clientX,
+      y: event.clientY,
+      time: Date.now(),
+      block: block,
+      segment: segmentNode,
+    };
+    clearTimeout(longPressTimer);
+    longPressTimer = setTimeout(function () {
+      longPressTriggered = true;
+      lastMobileTap = null;
+      navigator.vibrate && navigator.vibrate(20);
+      el.storyContent.querySelectorAll(".segment.actions-open").forEach(function (node) {
+        if (node !== segmentNode) node.classList.remove("actions-open", "actions-fixed", "actions-bottom");
+      });
+      syncSegmentActionPlacement(segmentNode);
+      segmentNode.classList.add("actions-open");
+      window.getSelection().removeAllRanges();
+      longPressStart = null;
+    }, 520);
+  });
+  el.storyContent.addEventListener("pointermove", function (event) {
+    if (!longPressStart) return;
+    if (Math.hypot(event.clientX - longPressStart.x, event.clientY - longPressStart.y) > 10) {
+      clearTimeout(longPressTimer);
+      longPressStart = null;
+    }
+  });
+  el.storyContent.addEventListener("pointerup", function (event) {
+    clearTimeout(longPressTimer);
+    if (longPressStart && !longPressTriggered &&
+        Date.now() - longPressStart.time < 320 &&
+        Math.hypot(event.clientX - longPressStart.x, event.clientY - longPressStart.y) <= 10) {
+      var now = Date.now();
+      if (lastMobileTap &&
+          lastMobileTap.block === longPressStart.block &&
+          now - lastMobileTap.time <= 360 &&
+          Math.hypot(event.clientX - lastMobileTap.x, event.clientY - lastMobileTap.y) <= 24) {
+        event.preventDefault();
+        playParagraphFromNode(longPressStart.block);
+        lastMobileTap = null;
+      } else {
+        lastMobileTap = { block: longPressStart.block, time: now, x: event.clientX, y: event.clientY };
+      }
+    }
+    longPressStart = null;
+    longPressTriggered = false;
+  });
+  el.storyContent.addEventListener("pointercancel", function () {
+    clearTimeout(longPressTimer);
+    longPressStart = null;
+    longPressTriggered = false;
+  });
+  el.storyContent.addEventListener("contextmenu", function (event) {
+    if (window.matchMedia("(max-width: 760px)").matches && event.target.closest("[data-segment-id]")) {
+      event.preventDefault();
+    }
+  });
+  document.addEventListener("pointerdown", function (event) {
+    if (event.target.closest(".segment.actions-open")) return;
+    el.storyContent.querySelectorAll(".segment.actions-open").forEach(function (node) {
+      node.classList.remove("actions-open", "actions-fixed", "actions-bottom");
+    });
+  });
+  el.storyContent.addEventListener("dblclick", function (event) {
+    var paragraph = event.target.closest(".speech-block");
+    if (!paragraph) return;
+    playParagraphFromNode(paragraph);
   });
 
-  el.povSelect.addEventListener("change", function () { applyStoryControl("pov", el.povSelect.value); });
   el.lengthSelect.addEventListener("change", function () { applyStoryControl("length", el.lengthSelect.value); });
   el.styleInput.addEventListener("change", function () { applyStoryControl("style", el.styleInput.value.trim()); });
   el.playerRoleInput.addEventListener("change", function () { applyStoryControl("playerRole", el.playerRoleInput.value.trim()); });
@@ -753,7 +890,13 @@ export function bindEvents() {
   el.setupForm.addEventListener("submit", function (event) {
     if (event.submitter && event.submitter.value === "cancel") return;
     event.preventDefault();
-    var story = createStoryData(el.setupTitle.value.trim(), el.setupPrompt.value.trim(), el.setupRole.value.trim(), el.setupGenre.value.trim());
+    var story = createStoryData(
+      el.setupTitle.value.trim(),
+      el.setupPrompt.value.trim(),
+      el.setupRole.value.trim(),
+      el.setupGenre.value.trim(),
+      el.setupPov.value
+    );
     state.stories = state.stories.filter(function (item) { return !isPristineStory(item); });
     state.stories.push(story);
     state.activeStoryId = story.id;

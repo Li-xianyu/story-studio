@@ -15,6 +15,7 @@ var CustomSelect = (function () {
     if (!this.nativeSelect) return;
 
     el._csInstance = this;
+    instances.push(this);
     this.nativeSelect.style.display = "none";
 
     this.buildTrigger();

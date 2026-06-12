@@ -44,6 +44,27 @@ function syncSpeechBlock() {
   var current = document.querySelector('.speech-block[data-speech-index="' +
     (Number.isFinite(paragraphIndex) ? paragraphIndex : state.tts.index) + '"]');
   if (current) current.classList.add("is-reading");
+  syncSegmentPlaybackButtons();
+}
+
+function syncSegmentPlaybackButtons() {
+  document.querySelectorAll('[data-segment-action="readFromHere"]').forEach(function (button) {
+    button.innerHTML = '<i data-lucide="play"></i>';
+    button.title = "\u4ece\u6b64\u5904\u5f00\u59cb\u8bfb";
+    button.setAttribute("aria-label", button.title);
+  });
+  if (state.tts.playing) {
+    var paragraphIndex = state.tts.chunkParagraphs && state.tts.chunkParagraphs[state.tts.index];
+    var block = document.querySelector('.speech-block[data-speech-index="' + paragraphIndex + '"]');
+    var activeButton = block && block.closest(".segment") &&
+      block.closest(".segment").querySelector('[data-segment-action="readFromHere"]');
+    if (activeButton) {
+      activeButton.innerHTML = '<i data-lucide="' + (state.tts.paused ? "play" : "pause") + '"></i>';
+      activeButton.title = state.tts.paused ? "\u7ee7\u7eed\u6717\u8bfb" : "\u6682\u505c\u6717\u8bfb";
+      activeButton.setAttribute("aria-label", activeButton.title);
+    }
+  }
+  if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
 }
 
 function setPlaybackIcon(playing) {
@@ -97,6 +118,21 @@ export function stopSpeech() {
   state.tts.paused = false;
   setPlaybackIcon(false);
   syncSpeechBlock();
+}
+
+export function toggleSpeechPause() {
+  if (!state.tts.playing) return false;
+  state.tts.paused = !state.tts.paused;
+  if (settings.ttsProvider === "mimo" && state.tts.audio) {
+    if (state.tts.paused) state.tts.audio.pause();
+    else state.tts.audio.play().catch(function () {});
+  } else if (window.speechSynthesis) {
+    if (state.tts.paused) window.speechSynthesis.pause();
+    else window.speechSynthesis.resume();
+  }
+  setPlaybackIcon(!state.tts.paused);
+  syncSpeechBlock();
+  return true;
 }
 
 export function refreshSpeechProgress() {
@@ -364,6 +400,20 @@ export function playChapterFromSegment(segmentId) {
     return paragraph === paragraphIndex;
   });
   playFromIndex(chunkIndex < 0 ? 0 : chunkIndex);
+}
+
+export function toggleChapterFromSegment(segmentId) {
+  var block = document.querySelector('[data-segment-id="' + segmentId + '"] .speech-block');
+  var segmentParagraph = block ? Number(block.dataset.speechIndex) : -1;
+  var activeParagraph = state.tts.chunkParagraphs && state.tts.chunkParagraphs[state.tts.index];
+  var activeBlock = document.querySelector('.speech-block[data-speech-index="' + activeParagraph + '"]');
+  var activeSegmentId = activeBlock && activeBlock.closest(".segment") &&
+    activeBlock.closest(".segment").dataset.segmentId;
+  if (state.tts.playing && activeSegmentId === segmentId) {
+    toggleSpeechPause();
+    return;
+  }
+  if (Number.isFinite(segmentParagraph) && segmentParagraph >= 0) playChapterFromIndex(segmentParagraph);
 }
 
 function prepareChapterSpeech(chapter) {
