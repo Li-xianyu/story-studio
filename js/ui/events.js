@@ -4,7 +4,7 @@
 
 import { state, settings, el, getStory, getChapter, touchStory, saveState, saveSettings, createStoryData, isPristineStory } from "../core/state.js";
 import { uid, nowIso, toast, setBusy } from "../core/utils.js";
-import { renderAll, renderStory, renderStoryList, renderChapterList, renderControls, renderMemory, renderBranches } from "./renderer.js";
+import { renderAll, renderStory, renderStoryList, renderChapterList, renderControls, renderMemory, renderBranches, segmentHtml } from "./renderer.js";
 import { openSettings, saveSettingsForm, readMoyuSettings, syncTtsProviderFields, openSegmentEditor, saveSegmentEdit, createUndoSnapshot, undoLastChange } from "./dialogs.js";
 import { speakText, stopSpeech, toggleSpeech, playFromIndex, populateVoices } from "../core/tts.js";
 import { newChapter, renameChapter, deleteChapter, renameStory, deleteStory, saveBranch, restoreBranch, deleteSegment, rewriteFromSegment, continueFromSegment, closeMobilePanels } from "../story/story.js";
@@ -32,37 +32,47 @@ async function generateNarrative(instruction, source, metadata) {
   };
   chapter.segments.push(segment);
   renderStory({ toBottom: true });
-  setBusy(el, true, source === "rewrite" ? "\u6b63\u5728\u91cd\u5199\u2026" : "\u6545\u4e8b\u6b63\u5728\u7ee7\u7eed\u2026");
+  // Find the streaming DOM node for in-place updates (no full re-render)
+  var streamingNode = document.querySelector('[data-segment-id="' + segment.id + '"]');
+  setBusy(el, true, source === "rewrite" ? "正在重写…" : "故事正在继续…");
   try {
     var messages = [
       { role: "system", content: buildSystemPrompt(story) },
-      { role: "user", content: "\u4ee5\u4e0b\u662f\u5f53\u524d\u7ae0\u8282\u6700\u8fd1\u7684\u6b63\u6587\uff1a\n\n" + (recentNarrative(chapter) || "\u5c1a\u65e0\u6b63\u6587\u3002") +
-        "\n\n\u63a5\u4e0b\u6765\u8bf7\u6267\u884c\uff1a" + (instruction || "\u81ea\u7136\u7eed\u5199\u6545\u4e8b\uff0c\u63a8\u8fdb\u5f53\u524d\u573a\u666f\u3002") }
+      { role: "user", content: "以下是当前章节最近的正文：\n\n" + (recentNarrative(chapter) || "尚无正文。") +
+        "\n\n接下来请执行：" + (instruction || "自然续写故事，推进当前场景。") }
     ];
     var completion = await streamCompletion(messages, function (delta) {
-      var shouldFollow = isReaderNearBottom();
       segment.content += delta;
-      renderStory({ toBottom: shouldFollow });
+      // In-place DOM update instead of full renderStory
+      if (streamingNode) {
+        streamingNode.innerHTML = segmentHtml(segment);
+        streamingNode = document.querySelector('[data-segment-id="' + segment.id + '"]');
+        if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+      }
+      if (isReaderNearBottom()) {
+        el.readerViewport.scrollTop = el.readerViewport.scrollHeight;
+      }
     }, { maxTokens: getLengthMaxTokens(story.length) });
     if (
       segment.content.trim() &&
       (["length", "max_tokens"].includes(completion.finishReason) || looksNarrativeIncomplete(segment.content))
     ) {
-      el.statusText.textContent = "\u6b63\u5728\u8865\u5168\u7ed3\u5c3e\u2026";
+      el.statusText.textContent = "正在补全结尾…";
       await completeTruncatedNarrative(story, segment);
     }
     segment.streaming = false;
     if (!segment.content.trim()) chapter.segments = chapter.segments.filter(function (item) { return item.id !== segment.id; });
     touchStory();
     renderAll();
+    if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
     if (segment.content && story.autoTts) speakText(segment.content, true);
     if (story.autoContinue && !state.abortController.signal.aborted) {
-      setTimeout(function () { generateNarrative("\u7ee7\u7eed\u81ea\u7136\u63a8\u8fdb\u6545\u4e8b\uff0c\u4e0d\u8981\u91cd\u590d\u4e0a\u4e00\u6bb5\u5185\u5bb9\u3002", "auto"); }, 800);
+      setTimeout(function () { generateNarrative("继续自然推进故事，不要重复上一段内容。", "auto"); }, 800);
     }
   } catch (error) {
     segment.streaming = false;
     if (!segment.content) chapter.segments = chapter.segments.filter(function (item) { return item.id !== segment.id; });
-    if (error.name !== "AbortError") toast(el.toast, "\u751f\u6210\u5931\u8d25\uff1a" + error.message);
+    if (error.name !== "AbortError") toast(el.toast, "生成失败：" + error.message);
     renderAll();
   } finally {
     state.abortController = null;
@@ -72,21 +82,27 @@ async function generateNarrative(instruction, source, metadata) {
 
 async function completeTruncatedNarrative(story, segment) {
   var tail = segment.content.slice(-1200);
+  var streamingNode = document.querySelector('[data-segment-id="' + segment.id + '"]');
   var result = await streamCompletion([
     {
       role: "system",
       content: [
-        "\u4f60\u662f\u4e2d\u6587\u5c0f\u8bf4\u65ad\u53e5\u4fee\u590d\u5668\u3002",
-        "\u53ea\u8865\u5b8c\u8f93\u5165\u672b\u5c3e\u88ab\u622a\u65ad\u7684\u5f53\u524d\u53e5\u5b50\uff0c\u5fc5\u8981\u65f6\u518d\u8865\u4e00\u4e24\u53e5\u8ba9\u5f53\u524d\u5c0f\u6bb5\u81ea\u7136\u505c\u4f4f\u3002",
-        "\u7981\u6b62\u5f00\u542f\u65b0\u60c5\u8282\uff0c\u7981\u6b62\u590d\u8ff0\u5df2\u6709\u6587\u5b57\uff0c\u7981\u6b62\u89e3\u91ca\uff0c\u76f4\u63a5\u8f93\u51fa\u9700\u8981\u8ffd\u52a0\u7684\u6b63\u6587\u3002",
-        "\u4fdd\u6301\u53d9\u4e8b\u89c6\u89d2\u4e0e\u6587\u98ce\uff1a" + story.pov + "\uff1b" + story.style
+        "你是中文小说断句修复器。",
+        "只补完输入末尾被截断的当前句子，必要时再补一两句让当前小段自然停住。",
+        "禁止开启新情节，禁止复述已有文字，禁止解释，直接输出需要追加的正文。",
+        "保持叙事视角与文风：" + story.pov + "；" + story.style
       ].join("\n")
     },
-    { role: "user", content: "\u4ee5\u4e0b\u6b63\u6587\u672b\u5c3e\u88ab\u622a\u65ad\uff0c\u8bf7\u53ea\u8f93\u51fa\u5e94\u5f53\u8ffd\u52a0\u7684\u90e8\u5206\uff1a\n\n" + tail }
+    { role: "user", content: "以下正文末尾被截断，请只输出应当追加的部分：\n\n" + tail }
   ], function (delta) {
-    var shouldFollow = isReaderNearBottom();
     segment.content += delta;
-    renderStory({ toBottom: shouldFollow });
+    if (streamingNode) {
+      streamingNode.innerHTML = segmentHtml(segment);
+      streamingNode = document.querySelector('[data-segment-id="' + segment.id + '"]');
+    }
+    if (isReaderNearBottom()) {
+      el.readerViewport.scrollTop = el.readerViewport.scrollHeight;
+    }
   }, { maxTokens: 260 });
   return result;
 }
@@ -101,32 +117,32 @@ async function submitComposer() {
     story.memory.lore = [story.memory.lore, value].filter(Boolean).join("\n");
     touchStory();
     renderMemory();
-    toast(el.toast, "\u8bbe\u5b9a\u5df2\u5199\u5165\u957f\u671f\u8bb0\u5fc6");
+    toast(el.toast, "设定已写入长期记忆");
     return;
   }
   if (state.inputMode === "role") {
     await generateNarrative(
       [
-        "\u7528\u6237\u4ee5\u89d2\u8272\u201c" + (story.playerRole || "\u5f53\u524d\u4e3b\u89d2") + "\u201d\u63d0\u4f9b\u4e86\u4e00\u6bb5\u5267\u60c5\u8349\u7a3f\uff1a",
+        "用户以角色“" + (story.playerRole || "当前主角") + "”提供了一段剧情草稿：",
         value,
         "",
-        "\u8bf7\u628a\u8fd9\u6bb5\u8349\u7a3f\u89c6\u4e3a\u786e\u5b9a\u53d1\u751f\u7684\u4e8b\u5b9e\u3002\u8f93\u51fa\u65f6\u5148\u5c06\u5b83\u6da6\u8272\u3001\u6269\u5199\u6210\u53ef\u76f4\u63a5\u63a5\u5728\u524d\u6587\u4e4b\u540e\u7684\u5c0f\u8bf4\u6b63\u6587\uff0c\u518d\u7ee7\u7eed\u63cf\u5199\u73af\u5883\u548c\u5176\u4ed6\u4eba\u7269\u7684\u81ea\u7136\u53cd\u5e94\u3002",
-        "\u6da6\u8272\u90e8\u5206\u5fc5\u987b\u670d\u4ece\u5f53\u524d\u53d9\u4e8b\u89c6\u89d2\uff1a\u524d\u6587\u662f\u7b2c\u4e00\u4eba\u79f0\u5c31\u4f7f\u7528\u201c\u6211\u201d\uff0c\u524d\u6587\u662f\u7b2c\u4e09\u4eba\u79f0\u5c31\u4f7f\u7528\u89d2\u8272\u59d3\u540d\u6216\u5408\u9002\u4ee3\u8bcd\u3002",
-        "\u4fdd\u6301\u524d\u6587\u6587\u98ce\u3001\u65f6\u6001\u3001\u8bed\u6c14\u548c\u4fe1\u606f\u8fb9\u754c\uff0c\u4e0d\u663e\u793a\u89d2\u8272\u6807\u7b7e\uff0c\u4e0d\u5f15\u7528\u539f\u59cb\u8f93\u5165\uff0c\u4e0d\u89e3\u91ca\u6539\u5199\u8fc7\u7a0b\uff0c\u4e5f\u4e0d\u8981\u66ff\u8be5\u89d2\u8272\u65b0\u589e\u91cd\u5927\u51b3\u5b9a\u3002"
+        "请把这段草稿视为确定发生的事实。输出时先将它润色、扩写成可直接接在前文之后的小说正文，再继续描写环境和其他人物的自然反应。",
+        "润色部分必须服从当前叙事视角：前文是第一人称就使用“我”，前文是第三人称就使用角色姓名或合适代词。",
+        "保持前文文风、时态、语气和信息边界，不显示角色标签，不引用原始输入，不解释改写过程，也不要替该角色新增重大决定。"
       ].join("\n"),
       "role",
       { sourceInput: value }
     );
     return;
   }
-  await generateNarrative("\u5267\u60c5\u6307\u4ee4\uff1a" + value + "\n\u81ea\u7136\u843d\u5b9e\u5230\u540e\u7eed\u6b63\u6587\u4e2d\uff0c\u4e0d\u8981\u63d0\u53ca\u8fd9\u6761\u6307\u4ee4\u3002", "director");
+  await generateNarrative("剧情指令：" + value + "\n自然落实到后续正文中，不要提及这条指令。", "director");
 }
 
 function stopGeneration() {
   if (state.abortController) state.abortController.abort();
   var chapter = getChapter();
   if (chapter) chapter.segments.forEach(function (segment) { segment.streaming = false; });
-  setBusy(el, false, "\u5df2\u505c\u6b62");
+  setBusy(el, false, "已停止");
   touchStory();
   renderStory();
 }
@@ -138,12 +154,12 @@ function rewriteLast() {
   for (var i = chapter.segments.length - 1; i >= 0; i -= 1) {
     if (chapter.segments[i].type === "narrative") { index = i; break; }
   }
-  if (index < 0) return toast(el.toast, "\u8fd8\u6ca1\u6709\u53ef\u91cd\u5199\u7684\u6b63\u6587");
-  createUndoSnapshot("\u5df2\u91cd\u5199\u672b\u6bb5");
+  if (index < 0) return toast(el.toast, "还没有可重写的正文");
+  createUndoSnapshot("已重写末段");
   chapter.segments.splice(index, 1);
   touchStory();
   renderStory();
-  generateNarrative("\u91cd\u65b0\u5199\u521a\u624d\u5e94\u5f53\u53d1\u751f\u7684\u540e\u7eed\u3002\u91c7\u7528\u4e0d\u540c\u4f46\u5408\u7406\u7684\u53d1\u5c55\uff0c\u907f\u514d\u590d\u7528\u521a\u624d\u7684\u63aa\u8f9e\u3002", "rewrite");
+  generateNarrative("重新写刚才应当发生的后续。采用不同但合理的发展，避免复用刚才的措辞。", "rewrite");
 }
 
 function resetInlineConfirm(exceptButton) {
@@ -168,7 +184,7 @@ function requestInlineConfirm(button, action) {
   button.dataset.originalHtml = button.innerHTML;
   button.dataset.confirming = "true";
   button.classList.add("confirming");
-  button.innerHTML = '<i data-lucide="check"></i><span class="confirm-label">\u786e\u8ba4</span>';
+  button.innerHTML = '<i data-lucide="check"></i><span class="confirm-label">确认</span>';
   if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
   button.dataset.confirmTimer = String(setTimeout(function () {
     resetInlineConfirm();
@@ -283,7 +299,7 @@ export function bindEvents() {
         var story = state.stories.find(function (item) { return item.id === actionButton.dataset.storyId; });
         if (!story) return;
         pendingDeleteStoryId = story.id;
-        el.deleteStoryName.textContent = story.title || "\u672a\u547d\u540d\u6545\u4e8b";
+        el.deleteStoryName.textContent = story.title || "未命名故事";
         el.deleteStoryDialog.showModal();
         return;
       }
@@ -335,8 +351,8 @@ export function bindEvents() {
       var segmentId = segmentNode.dataset.segmentId;
       var action = actionButton.dataset.segmentAction;
       if (action === "edit") openSegmentEditor(segmentId);
-      if (action === "rewrite") { rewriteFromSegment(segmentId); generateNarrative("\u4ece\u521a\u624d\u622a\u65ad\u7684\u4f4d\u7f6e\u91cd\u65b0\u7eed\u5199\uff0c\u91c7\u7528\u4e0d\u540c\u4f46\u5408\u7406\u7684\u53d1\u5c55\uff0c\u4e0d\u8981\u590d\u7528\u88ab\u5220\u9664\u6bb5\u843d\u7684\u63aa\u8f9e\u3002", "rewrite"); }
-      if (action === "continue") { continueFromSegment(segmentId); generateNarrative("\u7d27\u63a5\u5f53\u524d\u6b63\u6587\u81ea\u7136\u7eed\u5199\u5e76\u63a8\u8fdb\u573a\u666f\u3002", "continue"); }
+      if (action === "rewrite") { rewriteFromSegment(segmentId); generateNarrative("从刚才截断的位置重新续写，采用不同但合理的发展，不要复用被删除段落的措辞。", "rewrite"); }
+      if (action === "continue") { continueFromSegment(segmentId); generateNarrative("紧接当前正文自然续写并推进场景。", "continue"); }
       if (action === "delete") {
         requestInlineConfirm(actionButton, function () { deleteSegment(segmentId); });
       }
@@ -367,9 +383,9 @@ export function bindEvents() {
         item.setAttribute("aria-selected", active ? "true" : "false");
       });
       var placeholders = {
-        role: "\u4ee5\u89d2\u8272\u8eab\u4efd\u8bf4\u8bdd\u6216\u884c\u52a8\uff0c\u4f8b\u5982\uff1a\u6211\u63a8\u5f00\u95e8\uff0c\u8f7b\u58f0\u95ee\u5979\u662f\u4e0d\u662f\u4e00\u76f4\u5728\u7b49\u6211\u3002",
-        director: "\u63a7\u5236\u540e\u7eed\u53d1\u5c55\uff0c\u4f8b\u5982\uff1a\u8ba9\u771f\u76f8\u665a\u4e00\u70b9\u63ed\u6653\uff0c\u5148\u589e\u52a0\u4e24\u4eba\u7684\u731c\u7591\u3002",
-        lore: "\u52a0\u5165\u957f\u671f\u8bbe\u5b9a\uff0c\u4f8b\u5982\uff1a\u8fd9\u4e2a\u4e16\u754c\u91cc\uff0c\u76f4\u547c\u4ea1\u8005\u59d3\u540d\u4f1a\u88ab\u5176\u542c\u89c1\u3002",
+        role: "以角色身份说话或行动，例如：我推开门，轻声问她是不是一直在等我。",
+        director: "控制后续发展，例如：让真相晚一点揭晓，先增加两人的猜疑。",
+        lore: "加入长期设定，例如：这个世界里，直呼死者姓名会被其听见。",
       };
       el.composerInput.placeholder = placeholders[state.inputMode];
     });
@@ -380,7 +396,7 @@ export function bindEvents() {
     if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); submitComposer(); }
   });
   el.composerInput.addEventListener("input", syncComposerHeight);
-  document.getElementById("continueBtn").addEventListener("click", function () { generateNarrative("\u81ea\u7136\u7eed\u5199\u5e76\u63a8\u8fdb\u5f53\u524d\u573a\u666f\u3002", "continue"); });
+  document.getElementById("continueBtn").addEventListener("click", function () { generateNarrative("自然续写并推进当前场景。", "continue"); });
   document.getElementById("rewriteBtn").addEventListener("click", rewriteLast);
   document.getElementById("branchBtn").addEventListener("click", saveBranch);
   document.getElementById("summarizeBtn").addEventListener("click", summarizeMemory);
@@ -417,15 +433,15 @@ export function bindEvents() {
     state.activeStoryId = story.id;
     state.activeChapterId = story.chapters[0].id;
     saveState(); renderAll(); el.setupDialog.close(); el.setupForm.reset();
-    generateNarrative("\u6839\u636e\u5f00\u573a\u8bbe\u5b9a\u5199\u51fa\u5c0f\u8bf4\u7b2c\u4e00\u5e55\u3002\u76f4\u63a5\u8fdb\u5165\u573a\u666f\uff0c\u4ee5\u6709\u5438\u5f15\u529b\u4f46\u4e0d\u6545\u5f04\u7384\u865a\u7684\u65b9\u5f0f\u5f00\u7bc7\u3002", "opening");
+    generateNarrative("根据开场设定写出小说第一幕。直接进入场景，以有吸引力但不故弄玄虚的方式开篇。", "opening");
   });
 
   document.querySelectorAll("[data-memory]").forEach(function (button) {
     button.addEventListener("click", function (event) {
       event.preventDefault();
       state.memoryEditingKey = button.dataset.memory;
-      var labels = { summary: "\u6545\u4e8b\u6458\u8981", characters: "\u4eba\u7269\u5173\u7cfb", world: "\u4e16\u754c\u72b6\u6001", threads: "\u672a\u89e3\u4f0f\u7b14" };
-      el.memoryDialogTitle.textContent = "\u7f16\u8f91" + labels[state.memoryEditingKey];
+      var labels = { summary: "故事摘要", characters: "人物关系", world: "世界状态", threads: "未解伏笔" };
+      el.memoryDialogTitle.textContent = "编辑" + labels[state.memoryEditingKey];
       el.memoryEditor.value = getStory().memory[state.memoryEditingKey] || "";
       el.memoryDialog.showModal();
     });
@@ -436,8 +452,7 @@ export function bindEvents() {
     getStory().memory[state.memoryEditingKey] = el.memoryEditor.value.trim();
     touchStory(); renderMemory(); el.memoryDialog.close();
   });
-  document.getElementById("segmentEditForm").addEventListener("submit", function (event) {
-    event.preventDefault();
+  document.getElementById("saveSegmentBtn").addEventListener("click", function () {
     saveSegmentEdit();
   });
   document.getElementById("undoBtn").addEventListener("click", undoLastChange);
@@ -456,7 +471,7 @@ export function bindEvents() {
   });
   document.getElementById("ttsTestBtn").addEventListener("click", function () {
     saveSettingsForm();
-    speakText("\u66ae\u8272\u4ece\u7a97\u5916\u7f13\u6162\u843d\u4e0b\uff0c\u6545\u4e8b\u6b63\u8981\u5f00\u59cb\u3002", true);
+    speakText("暮色从窗外缓慢落下，故事正要开始。", true);
   });
 
   el.ttsPlayBtn.addEventListener("click", toggleSpeech);
