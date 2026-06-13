@@ -10,6 +10,25 @@ import { initCustomSelects, syncAll } from "./ui/custom-select.js";
 
 var PANEL_STATE_KEY = "floating-story-studio-panels-v1";
 
+function syncAppChromeTheme() {
+  var light = document.documentElement.dataset.theme === "light";
+  var themeColor = light ? "#f7f7f9" : "#000000";
+  var metaTheme = document.querySelector('meta[name="theme-color"]');
+  var metaScheme = document.querySelector('meta[name="color-scheme"]');
+  if (metaTheme) metaTheme.content = themeColor;
+  if (metaScheme) metaScheme.content = light ? "light" : "dark";
+  document.documentElement.style.colorScheme = light ? "light" : "dark";
+  document.documentElement.style.backgroundColor = themeColor;
+}
+
+function observeAppTheme() {
+  syncAppChromeTheme();
+  new MutationObserver(syncAppChromeTheme).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  });
+}
+
 function restoreDesktopPanelState() {
   if (!window.matchMedia("(min-width: 761px)").matches) return;
   document.documentElement.classList.add("restoring-panels");
@@ -66,6 +85,43 @@ function registerServiceWorker() {
   });
 }
 
+function bindPwaInstall() {
+  var installButton = document.getElementById("installAppBtn");
+  if (!installButton) return;
+  var deferredPrompt = null;
+  var standalone = window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true;
+
+  function setAvailable(available) {
+    installButton.hidden = standalone || !available;
+  }
+
+  window.addEventListener("beforeinstallprompt", function (event) {
+    event.preventDefault();
+    deferredPrompt = event;
+    setAvailable(true);
+  });
+
+  installButton.addEventListener("click", async function () {
+    if (!deferredPrompt) return;
+    installButton.disabled = true;
+    try {
+      await deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+    } finally {
+      deferredPrompt = null;
+      installButton.disabled = false;
+      setAvailable(false);
+    }
+  });
+
+  window.addEventListener("appinstalled", function () {
+    standalone = true;
+    deferredPrompt = null;
+    setAvailable(false);
+  });
+}
+
 function bindLiquidGlass() {
   var composer = document.querySelector(".composer");
   var viewport = document.getElementById("readerViewport");
@@ -116,6 +172,7 @@ function init() {
   initCustomSelects();
   bindEvents();
   renderAll();
+  observeAppTheme();
   populateVoices();
   syncAll();
   syncComposerHeight();
@@ -128,7 +185,8 @@ function init() {
   if (window.lucide && typeof window.lucide.createIcons === "function") {
     window.lucide.createIcons();
   }
-  registerServiceWorker();
 }
 
+bindPwaInstall();
+registerServiceWorker();
 document.addEventListener("DOMContentLoaded", init);

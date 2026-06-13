@@ -96,8 +96,14 @@ export function renderStory(options) {
 }
 
 function syncThemeColor() {
-  var meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = settings.theme === "light" ? "#ffffff" : "#000000";
+  var light = settings.theme === "light";
+  var themeColor = light ? "#f7f7f9" : "#000000";
+  var metaTheme = document.querySelector('meta[name="theme-color"]');
+  var metaScheme = document.querySelector('meta[name="color-scheme"]');
+  if (metaTheme) metaTheme.content = themeColor;
+  if (metaScheme) metaScheme.content = light ? "light" : "dark";
+  document.documentElement.style.colorScheme = light ? "light" : "dark";
+  document.documentElement.style.backgroundColor = themeColor;
 }
 
 export function renderControls() {

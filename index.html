@@ -22,14 +22,20 @@
         if (saved && saved.theme) {
           document.documentElement.dataset.theme = saved.theme;
           var meta = document.querySelector('meta[name="theme-color"]');
-          if (meta) meta.content = saved.theme === "light" ? "#ffffff" : "#000000";
+          var light = saved.theme === "light";
+          var themeColor = light ? "#f7f7f9" : "#000000";
+          if (meta) meta.content = themeColor;
+          var scheme = document.querySelector('meta[name="color-scheme"]');
+          if (scheme) scheme.content = light ? "light" : "dark";
+          document.documentElement.style.colorScheme = light ? "light" : "dark";
+          document.documentElement.style.backgroundColor = themeColor;
         }
       } catch (_) {}
     })();
   </script>
   <link rel="stylesheet" href="./css/tokens.css?v=20260613r">
   <link rel="stylesheet" href="./css/reset.css">
-  <link rel="stylesheet" href="./css/layout.css?v=20260613r">
+  <link rel="stylesheet" href="./css/layout.css?v=20260613s">
   <link rel="stylesheet" href="./css/components.css?v=20260613r">
   <link rel="stylesheet" href="./css/reader.css?v=20260613r">
   <link rel="stylesheet" href="./css/composer.css?v=20260613r">
@@ -70,6 +76,7 @@
       <div class="library-footer">
         <button id="importBtn" class="library-tool-btn"><i data-lucide="download"></i><span>导入</span></button>
         <button id="exportBtn" class="library-tool-btn"><i data-lucide="upload"></i><span>导出</span></button>
+        <button id="installAppBtn" class="library-tool-btn install-app-entry" hidden><i data-lucide="monitor-down"></i><span>安装到桌面</span></button>
         <button id="settingsBtn" class="quiet-btn settings-entry"><i data-lucide="settings"></i><span>模型与朗读设置</span></button>
         <input id="importInput" type="file" accept=".json,.md,.txt" hidden>
       </div>
@@ -392,6 +399,6 @@
 
   <div id="toast" class="toast"></div>
   <script src="./vendor/lucide/0.468.0/lucide.min.js"></script>
-  <script type="module" src="./js/app.js?v=20260613r"></script>
+  <script type="module" src="./js/app.js?v=20260613u"></script>
 </body>
 </html>

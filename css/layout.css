@@ -284,6 +284,19 @@
 }
 .library-tool-btn:hover { color: var(--text-primary); background: rgba(255,255,255,.07); }
 .library-tool-btn svg { width: 14px; height: 14px; }
+.install-app-entry {
+  grid-column: 1 / -1;
+  min-height: 36px;
+  color: var(--text-primary);
+  background: rgba(255,255,255,.055);
+  border: 1px solid rgba(255,255,255,.07);
+}
+.install-app-entry[hidden] { display: none; }
+[data-theme="light"] .install-app-entry {
+  color: rgba(0,0,0,.76);
+  background: rgba(60,60,67,.055);
+  border-color: rgba(60,60,67,.08);
+}
 
 [data-theme="light"] .library-panel {
   background: rgba(250,250,252,.94);
