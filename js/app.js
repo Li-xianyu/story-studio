@@ -63,8 +63,7 @@ function syncComposerHeight() {
 
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
-  window.addEventListener("load", function () {
-    navigator.serviceWorker.register("./sw.js").then(function (reg) {
+  navigator.serviceWorker.register("./sw.js").then(function (reg) {
       if (reg.active && !navigator.serviceWorker.controller) return;
       reg.addEventListener("updatefound", function () {
         var newSW = reg.installing;
@@ -82,7 +81,6 @@ function registerServiceWorker() {
     }).catch(function (error) {
       console.warn("[PWA] Service Worker 注册失败", error);
     });
-  });
 }
 
 function bindPwaInstall() {
