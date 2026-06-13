@@ -1,4 +1,4 @@
-const SW_VERSION = "20260613x";
+const SW_VERSION = "20260613y";
 const CACHE_NAME = "xy-story-shell-" + SW_VERSION;
 
 function cacheable(request, response) {
