@@ -1,5 +1,5 @@
-/* ============================================================
-   浮光剧场 · Reader
+﻿/* ============================================================
+   娴厜鍓у満 路 Reader
    ============================================================ */
 
 /* === Reader Shell === */
@@ -87,8 +87,11 @@
     76px
     max(24px, calc((100% - var(--reader-width)) / 2))
     var(--reader-bottom-space);
-  transition: padding-bottom .32s var(--ease-fluid);
-}
+  transition:
+    padding-bottom .35s var(--ease-fluid),
+    padding-left    .35s var(--ease-fluid),
+    padding-right   .35s var(--ease-fluid);
+ }
 body.audio-panel-open .reader-viewport {
   --segment-action-safe-space: 44px;
   --reader-bottom-space: calc(var(--composer-height, 204px) + 94px + var(--segment-action-safe-space));
@@ -111,6 +114,8 @@ body.audio-panel-open .reader-viewport {
   background: rgba(94,104,120,.18);
 }
 .story-content p { margin: 0 0 1.3em; white-space: pre-wrap; }
+.story-content .segment .speech-block:last-child { margin-bottom: 0; }
+.story-content.reader-indent p { text-indent: 2em; }
 
 .story-content .speech-block {
   margin-inline: -8px;
@@ -125,12 +130,12 @@ body.audio-panel-open .reader-viewport {
 
 .story-content .segment {
   position: relative;
-  margin: 0 -14px;
+  margin: 0;
   padding: 20px 14px;
   border-radius: var(--radius-md);
   transition: background .18s var(--ease-out), box-shadow .18s var(--ease-out);
 }
-.story-content .segment + .segment { margin-top: 0; }
+.story-content .segment + .segment { margin-top: 0; padding: 3.4px 14px 20px; }
 .story-content .segment.actions-open {
   background: rgba(255,255,255,.075);
   box-shadow:

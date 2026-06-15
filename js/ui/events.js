@@ -1,20 +1,85 @@
-/* ============================================================
+﻿/* ============================================================
    浮光剧场 · Events
    ============================================================ */
 
-import { state, settings, el, getStory, getChapter, touchStory, saveState, saveSettings, createStoryData, isPristineStory } from "../core/state.js";
+import { state, settings, el, getStory, getChapter, touchStory, saveState, saveSettings, createStoryData, isPristineStory, applyReaderSettings } from "../core/state.js";
 import { uid, nowIso, toast, setBusy } from "../core/utils.js";
 import { renderAll, renderStory, renderStoryList, renderChapterList, renderControls, renderMemory, renderBranches, segmentHtml } from "./renderer.js";
-import { openSettings, saveSettingsForm, readMoyuSettings, syncTtsProviderFields, openSegmentEditor, saveSegmentEdit, createUndoSnapshot, undoLastChange } from "./dialogs.js";
-import { speakText, stopSpeech, toggleSpeech, playFromIndex, playChapterFromIndex, playChapterFromSegment, toggleChapterFromSegment, populateVoices } from "../core/tts.js";
+import { openSettings, saveSettingsForm, syncTtsProviderFields, openSegmentEditor, saveSegmentEdit, createUndoSnapshot, undoLastChange } from "./dialogs.js";
+import { syncAll } from "./custom-select.js";
+import { speakText, stopSpeech, toggleSpeech, playFromIndex, playChapterFromIndex, playChapterFromSegment, toggleChapterFromSegment, populateVoices, flushStreamedParagraphs, resetStreamedState } from "../core/tts.js";
 import { newChapter, renameChapter, deleteChapter, renameStory, deleteStory, saveBranch, restoreBranch, deleteSegment, rewriteFromSegment, closeMobilePanels } from "../story/story.js";
 import { summarizeMemory, prepareChapterMemory, recentNarrative, looksNarrativeIncomplete, getLengthMaxTokens, buildSystemPrompt } from "../story/memory.js";
 import { exportStory, importFile } from "../story/import-export.js";
 import { streamCompletion } from "../core/api.js";
-import { buildSpeechAnnotationInput, parseSpeechAnnotation } from "../core/speech-track.js";
+import { parseInlineSpeechTrack, stripVoiceMarkers, buildSpeechAnnotationInput, parseSpeechAnnotation } from "../core/speech-track.js";
 
 function isReaderNearBottom() {
   return el.readerViewport.scrollHeight - el.readerViewport.scrollTop - el.readerViewport.clientHeight < 120;
+}
+var userScrolledAway = false;
+
+async function annotateSpeechTrack(story, content) {
+  var numbered = buildSpeechAnnotationInput(content);
+  if (!numbered) return [];
+  console.log("[SpeechTrack] 提交给标注模型的编号文本\n" + numbered);
+  var lines = numbered.split(/\r?\n/).filter(Boolean);
+  var messages = [
+    {
+      role: "system",
+      content: [
+        "你是中文有声小说配音标注器。",
+        "输入是已经按自然段.句子编号的小说文本，如 0.0 0.1 1.0 等。",
+        "判断每个编号使用哪类声音：n=旁白，m=男性角色直接台词，f=女性角色直接台词。",
+        "只有角色实际说出口的直接台词使用m或f；引号外的说话提示、动作、心理、神态和环境全部使用n。",
+        "结合全文人物身份和上下文判断说话者，不要因为句子包含男性姓名或他就标m。",
+        "例如：编号0.0的内容是 放那边就行。 则输出 0.0:m；编号0.1的内容是 他说声音不高 则输出 0.1:n。",
+        "必须为每个编号输出一行，格式严格为 编号:字母。禁止解释，禁止复述原文，立即输出答案。"
+      ].join("\n")
+    },
+    {
+      role: "user",
+      content: [
+        story.memory.characters ? "人物关系：\n" + story.memory.characters : "",
+        story.playerRole ? "用户角色：" + story.playerRole : "",
+        "待标注文本：\n" + numbered
+      ].filter(Boolean).join("\n\n")
+    }
+  ];
+  var result = "";
+  var completion;
+  var parsed = [];
+  var parsedCount = 0;
+  for (var attempt = 1; attempt <= 2; attempt += 1) {
+    result = "";
+    completion = await streamCompletion(messages, function (delta) {
+      result += delta;
+    }, {
+      maxTokens: Math.max(attempt === 1 ? 256 : 512, lines.length * (attempt === 1 ? 10 : 18)),
+      temperature: 0,
+      thinking: "disabled",
+    });
+    parsed = parseSpeechAnnotation(result);
+    parsedCount = parsed.reduce(function (sum, track) { return sum + track.voices.length; }, 0);
+    console.log("[SpeechTrack] 标注请求结束", {
+      attempt: attempt,
+      finishReason: completion.finishReason,
+      outputCharacters: result.length,
+      expectedLabels: lines.length,
+      parsedLabels: parsedCount,
+    });
+    console.log("[SpeechTrack] 标注模型原始返回\n" + result);
+    if (result.trim() && parsedCount >= lines.length) break;
+    if (attempt === 1) console.warn("[SpeechTrack] 标注输出为空或不完整，正在提高预算重试");
+  }
+  if (!result.trim() || parsedCount < lines.length) {
+    throw new Error(
+      "标注输出不完整：期望 " + lines.length + " 条，实际 " + parsedCount +
+      " 条，finish_reason=" + (completion && completion.finishReason || "unknown")
+    );
+  }
+  console.log("[SpeechTrack] 解析后的隐藏声线轨道", parsed);
+  return parsed;
 }
 
 function beginInlineRename(row, currentName, onCommit, onCancel) {
@@ -61,20 +126,20 @@ function rolePovInstruction(story) {
     return "本次正文必须继续使用第一人称叙述。把用户输入小说化，但不要逐句照抄，也不得切换为第二或第三人称。";
   }
   if (story.pov === "第二人称") {
-    return "本次正文必须使用“你”指代用户扮演的核心视角角色。用户输入中的“我”应改写为“你”，不得切换为第一或第三人称。";
+    return "本次正文必须使用「你」指代用户扮演的核心视角角色。用户输入中的「我」应改写为「你」，不得切换为第一或第三人称。";
   }
-  return "本次正文必须使用第三人称叙述。禁止把用户输入中的“我”原样作为叙述主体；应改写为角色“" +
+  return "本次正文必须使用第三人称叙述。禁止把用户输入中的「我」原样作为叙述主体；应改写为角色「" +
     (story.playerRole || "当前主角") +
-    "”的姓名或符合上下文的第三人称代词，不得切换为第一或第二人称。";
+    "」的姓名或符合上下文的第三人称代词，不得切换为第一或第二人称。";
 }
 
 function buildRoleInstruction(story, value) {
   return [
-    "用户以角色“" + (story.playerRole || "当前主角") + "”提供了一段剧情草稿：",
+    "用户以角色「" + (story.playerRole || "当前主角") + "」提供了一段剧情草稿：",
     value,
     "",
-    "请把这段草稿视为角色已经做出或说出的事实，而不是可以原样复制进正文的第一人称文本。先解析“我”所指的角色，再改写成可直接接在前文之后的小说正文，随后描写环境和其他人物的自然反应。",
-    "当前叙事视角由设置明确指定为“" + story.pov + "”，只能服从该设置，不得根据用户输入中的“我”或前文措辞自行改变人称。",
+    "请把这段草稿视为角色已经做出或说出的事实，而不是可以原样复制进正文的第一人称文本。先解析「我」所指的角色，再改写成可直接接在前文之后的小说正文，随后描写环境和其他人物的自然反应。",
+    "当前叙事视角由设置明确指定为「" + story.pov + "」，只能服从该设置，不得根据用户输入中的「我」或前文措辞自行改变人称。",
     rolePovInstruction(story),
     "玩家角色的控制权属于用户。只允许呈现本次输入已经明确写出的动作、台词和意图；禁止替玩家角色追加新的动作、台词、心理活动、判断、承诺、决定或下一步计划。",
     "不要为了推进故事而擅自引入新人物、新线索、突发事件、冲突升级或新的剧情分支。重点描写当前场景的空间、光线、声音、气味与氛围，细化已经发生的动作神态，并让在场其他人物针对用户明确行为作出直接、克制且符合人物逻辑的反应。",
@@ -105,7 +170,7 @@ function claimIncompleteTail(chapter, insertIndex) {
     content.lastIndexOf("！"),
     content.lastIndexOf("？"),
     content.lastIndexOf("…"),
-    content.lastIndexOf("”"),
+    content.lastIndexOf("」"),
     content.lastIndexOf("」"),
     content.lastIndexOf("』")
   );
@@ -163,17 +228,19 @@ async function generateNarrative(instruction, source, metadata) {
     var messages = [
       { role: "system", content: buildSystemPrompt(story) },
       { role: "user", content: narrativeContext + continuationInstruction +
-        "\n\n接下来请执行：" + (instruction || "自然续写故事，推进当前场景。") }
+        "\n\n接下来请执行：" + (instruction || "自然续写故事，推进当前场景。") +
+        "\n\n【硬性要求】每句人物对话的引号后必须紧跟 [m] 或 [f] 标记说话人性别（男[m] 女[f]），旁白不加标记。不加标记会导致朗读功能完全失效。示例：\"你来了。\"[m] \"嗯。\"[f]" }
     ];
     var completion = await streamCompletion(messages, function (delta) {
       segment.content += delta;
-      // In-place DOM update instead of full renderStory
+      // streaming TTS 已禁用，改为全文生成完后统一朗读
+      // try { if (story.autoTts) flushStreamedParagraphs(segment.content); } catch (_) {}
       if (streamingNode) {
         streamingNode.outerHTML = segmentHtml(segment);
         streamingNode = document.querySelector('[data-segment-id="' + segment.id + '"]');
         if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
       }
-      if (isReaderNearBottom()) {
+      if (!userScrolledAway) {
         el.readerViewport.scrollTop = el.readerViewport.scrollHeight;
       }
     }, { maxTokens: getLengthMaxTokens(story.length) });
@@ -191,15 +258,26 @@ async function generateNarrative(instruction, source, metadata) {
       characters: segment.content.length,
       content: segment.content,
     });
-    el.statusText.textContent = "正在生成朗读声线…";
-    console.log("[SpeechTrack] 3/4 模型正在进行朗读标注");
-    try {
-      segment.speechTrack = await annotateSpeechTrack(story, segment.content);
-      console.log("[SpeechTrack] 4/4 朗读标注完成", segment.speechTrack);
-    } catch (annotationError) {
-      segment.speechTrack = [];
-      console.error("[SpeechTrack] 朗读标注失败", annotationError);
-      toast(el.toast, "正文已生成，朗读声线标注失败");
+    resetStreamedState();
+    // 双层声线标注：先尝试内联 [m]/[f]，失败则二次请求
+    var rawForDebug = segment.content;
+    segment.speechTrack = parseInlineSpeechTrack(segment.content);
+    segment.content = stripVoiceMarkers(segment.content);
+    console.log("[SpeechTrack] 3/4 内联声线标注", segment.speechTrack);
+    console.log("[SpeechTrack] 原文（含标记）:", rawForDebug);
+    var markersFound = rawForDebug.match(/\[[nmf]\]/g);
+    console.log("[SpeechTrack] 检测到的标记:", markersFound || "无");
+    // 如果内联标注没有检测到任何标记，发起二次 AI 请求
+    if (!markersFound || markersFound.length === 0) {
+      console.log("[SpeechTrack] 内联标注为空，发起二次标注请求...");
+      try {
+        segment.speechTrack = await annotateSpeechTrack(story, segment.content);
+        console.log("[SpeechTrack] 4/4 二次标注完成", segment.speechTrack);
+      } catch (annotationError) {
+        segment.speechTrack = [];
+        console.error("[SpeechTrack] 二次标注失败", annotationError);
+        toast(el.toast, "声线标注失败，使用默认旁白");
+      }
     }
     segment.streaming = false;
     if (!segment.content.trim()) chapter.segments = chapter.segments.filter(function (item) { return item.id !== segment.id; });
@@ -229,69 +307,6 @@ async function generateNarrative(instruction, source, metadata) {
   }
 }
 
-async function annotateSpeechTrack(story, content) {
-  var numbered = buildSpeechAnnotationInput(content);
-  if (!numbered) return [];
-  console.log("[SpeechTrack] 提交给标注模型的编号文本\n" + numbered);
-  var lines = numbered.split(/\r?\n/).filter(Boolean);
-  var messages = [
-    {
-      role: "system",
-      content: [
-        "你是中文有声小说配音标注器。",
-        "输入是已经按“自然段.句子”编号的小说文本。",
-        "判断每个编号使用哪类声音：n=旁白，m=男性角色直接台词，f=女性角色直接台词。",
-        "只有角色实际说出口的直接台词使用m或f；引号外的说话提示、动作、心理、神态和环境全部使用n。",
-        "结合全文人物身份和上下文判断说话者，不要因为句子包含男性姓名或“他”就标m。",
-        "例如：“0.0 “放那边就行。””输出“0.0:m”；“0.1 他说，声音不高。”输出“0.1:n”。",
-        "必须为每个编号输出一行，格式严格为“编号:n”。禁止解释，禁止复述原文，立即输出答案。"
-      ].join("\n")
-    },
-    {
-      role: "user",
-      content: [
-        story.memory.characters ? "人物关系：\n" + story.memory.characters : "",
-        story.playerRole ? "用户角色：" + story.playerRole : "",
-        "待标注文本：\n" + numbered
-      ].filter(Boolean).join("\n\n")
-    }
-  ];
-  var result = "";
-  var completion;
-  var parsed = [];
-  var parsedCount = 0;
-  for (var attempt = 1; attempt <= 2; attempt += 1) {
-    result = "";
-    completion = await streamCompletion(messages, function (delta) {
-      result += delta;
-    }, {
-      maxTokens: Math.max(attempt === 1 ? 256 : 512, lines.length * (attempt === 1 ? 10 : 18)),
-      temperature: 0,
-      thinking: "disabled",
-    });
-    parsed = parseSpeechAnnotation(result);
-    parsedCount = parsed.reduce(function (sum, track) { return sum + track.voices.length; }, 0);
-    console.log("[SpeechTrack] 标注请求结束", {
-      attempt: attempt,
-      finishReason: completion.finishReason,
-      outputCharacters: result.length,
-      expectedLabels: lines.length,
-      parsedLabels: parsedCount,
-      thinking: "disabled",
-    });
-    console.log("[SpeechTrack] 标注模型原始返回\n" + result);
-    if (result.trim() && parsedCount >= lines.length) break;
-    if (attempt === 1) console.warn("[SpeechTrack] 标注输出为空或不完整，正在提高预算重试");
-  }
-  if (!result.trim() || parsedCount < lines.length) {
-    throw new Error(
-      "标注输出不完整：期望 " + lines.length + " 条，实际 " + parsedCount +
-      " 条，finish_reason=" + (completion && completion.finishReason || "unknown")
-    );
-  }
-  console.log("[SpeechTrack] 解析后的隐藏声线轨道", parsed);
-  return parsed;
-}
 
 async function submitComposer() {
   var value = el.composerInput.value.trim();
@@ -562,6 +577,28 @@ export function bindEvents() {
     await prepareChapterMemory();
   });
   document.getElementById("settingsBtn").addEventListener("click", function () { openSettings(); });
+  document.getElementById("readingSettingsBtn").addEventListener("click", function () {
+    el.readerFontSize.value = settings.readerFontSize;
+    el.readerLineHeight.value = settings.readerLineHeight;
+    el.readerIndentToggle.checked = Boolean(settings.readerIndent);
+    syncAll();
+    el.readingSettingsDialog.showModal();
+  });
+  el.readerFontSize.addEventListener("change", function () {
+    settings.readerFontSize = el.readerFontSize.value;
+    saveSettings();
+    applyReaderSettings();
+  });
+  el.readerLineHeight.addEventListener("change", function () {
+    settings.readerLineHeight = el.readerLineHeight.value;
+    saveSettings();
+    applyReaderSettings();
+  });
+  el.readerIndentToggle.addEventListener("change", function () {
+    settings.readerIndent = el.readerIndentToggle.checked;
+    saveSettings();
+    applyReaderSettings();
+  });
   document.getElementById("libraryThemeBtn").addEventListener("click", function () {
     settings.theme = settings.theme === "dark" ? "light" : "dark";
     saveSettings();
@@ -725,6 +762,7 @@ export function bindEvents() {
     }
   });
   el.readerViewport.addEventListener("scroll", function () {
+    userScrolledAway = !isReaderNearBottom();
     var activeSegment = el.storyContent.querySelector(".segment:hover, .segment.actions-open");
     if (activeSegment) syncSegmentActionPlacement(activeSegment);
   }, { passive: true });
@@ -932,8 +970,14 @@ export function bindEvents() {
       document.querySelectorAll("[data-settings-panel]").forEach(function (panel) { panel.hidden = panel.dataset.settingsPanel !== button.dataset.settingsTab; });
     });
   });
+  document.querySelectorAll("[data-rs-tab]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      document.querySelectorAll("[data-rs-tab]").forEach(function (item) { item.classList.toggle("active", item === button); });
+      document.querySelectorAll("[data-rs-panel]").forEach(function (panel) { panel.hidden = panel.dataset.rsPanel !== button.dataset.rsTab; });
+    });
+  });
   el.ttsProvider.addEventListener("change", syncTtsProviderFields);
-  document.getElementById("importMoyuConfigBtn").addEventListener("click", readMoyuSettings);
+
   el.settingsForm.addEventListener("submit", function (event) {
     if (event.submitter && event.submitter.value === "cancel") return;
     event.preventDefault(); saveSettingsForm(); el.settingsDialog.close();
@@ -962,4 +1006,17 @@ export function bindEvents() {
     el.importInput.value = "";
   });
   if (window.speechSynthesis) window.speechSynthesis.addEventListener("voiceschanged", populateVoices);
+
+  // 缩到 mobile 断点时自动隐藏右侧栏，展开时恢复
+  var mobileMql = window.matchMedia("(max-width: 760px)");
+  var wasControlsOpen = false;
+  if (mobileMql.matches) wasControlsOpen = el.controlsPanel.classList.contains("open");
+  mobileMql.addListener(function (ev) {
+    if (ev.matches) {
+      wasControlsOpen = el.controlsPanel.classList.contains("open");
+      el.controlsPanel.classList.remove("open");
+    } else if (wasControlsOpen) {
+      el.controlsPanel.classList.add("open");
+    }
+  });
 }

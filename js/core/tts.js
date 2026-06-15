@@ -4,13 +4,64 @@
 
 import { settings, state, el, getStory, getChapter } from "./state.js";
 import { toast } from "./utils.js";
-import { buildSpeechPlan } from "./speech-track.js";
+import { buildSpeechPlan, splitNarrativeSentences, parseInlineSpeechTrack, stripVoiceMarkers, buildVoicePlan } from "./speech-track.js";
 
 var audioCache = new Map();
 var audioCacheBytes = 0;
 var maxAudioCacheBytes = 96 * 1024 * 1024;
 var playbackSession = 0;
 var speechSource = "";
+
+/* ---- Screen Wake Lock: keep device awake during playback ---- */
+var wakeLockRequest = null;
+
+/* ---- iOS SpeechSynthesis keepalive (stops after ~15s in PWA) ---- */
+var systemTtsKeepAliveTimer = 0;
+
+function startSystemTtsKeepAlive() {
+  stopSystemTtsKeepAlive();
+  systemTtsKeepAliveTimer = setInterval(function () {
+    if (window.speechSynthesis && window.speechSynthesis.speaking) {
+      window.speechSynthesis.pause();
+      window.speechSynthesis.resume();
+    }
+  }, 8000);
+}
+
+function stopSystemTtsKeepAlive() {
+  if (systemTtsKeepAliveTimer) {
+    clearInterval(systemTtsKeepAliveTimer);
+    systemTtsKeepAliveTimer = 0;
+  }
+}
+
+async function acquireWakeLock() {
+  if (wakeLockRequest) return;
+  if (!navigator.wakeLock) return;
+  try {
+    wakeLockRequest = await navigator.wakeLock.request("screen");
+    wakeLockRequest.addEventListener("release", function () {
+      wakeLockRequest = null;
+      if (state.tts.playing && !state.tts.paused) {
+        acquireWakeLock().catch(function () {});
+      }
+    });
+  } catch (_) {}
+}
+
+function releaseWakeLock() {
+  if (wakeLockRequest) {
+    try { wakeLockRequest.release(); } catch (_) {}
+    wakeLockRequest = null;
+  }
+}
+
+/* ---- Re-acquire wake lock when user comes back ---- */
+document.addEventListener("visibilitychange", function () {
+  if (document.visibilityState === "visible" && state.tts.playing && !state.tts.paused) {
+    acquireWakeLock().catch(function () {});
+  }
+});
 
 function chapterSpeechSource(chapter) {
   return JSON.stringify((chapter && chapter.segments || []).map(function (segment) {
@@ -111,6 +162,7 @@ export function stopSpeech() {
     state.tts.audio.onended = null;
     state.tts.audio.onerror = null;
     state.tts.audio.pause();
+    if (state.tts.audio.parentNode) state.tts.audio.parentNode.removeChild(state.tts.audio);
     if (state.tts.audio._speechUrl) URL.revokeObjectURL(state.tts.audio._speechUrl);
     state.tts.audio = null;
   }
@@ -118,17 +170,19 @@ export function stopSpeech() {
   state.tts.paused = false;
   setPlaybackIcon(false);
   syncSpeechBlock();
+  releaseWakeLock();
+  stopSystemTtsKeepAlive();
 }
 
 export function toggleSpeechPause() {
   if (!state.tts.playing) return false;
   state.tts.paused = !state.tts.paused;
   if (settings.ttsProvider === "mimo" && state.tts.audio) {
-    if (state.tts.paused) state.tts.audio.pause();
-    else state.tts.audio.play().catch(function () {});
+    if (state.tts.paused) { state.tts.audio.pause(); releaseWakeLock(); }
+    else { acquireWakeLock(); state.tts.audio.play().catch(function () {}); }
   } else if (window.speechSynthesis) {
-    if (state.tts.paused) window.speechSynthesis.pause();
-    else window.speechSynthesis.resume();
+    if (state.tts.paused) { window.speechSynthesis.pause(); releaseWakeLock(); }
+    else { acquireWakeLock(); window.speechSynthesis.resume(); }
   }
   setPlaybackIcon(!state.tts.paused);
   syncSpeechBlock();
@@ -204,28 +258,52 @@ function getCachedAudio(chunk, voiceRole) {
   return entry.promise;
 }
 
+function blobToDataURL(blob) {
+  return new Promise(function (resolve, reject) {
+    var reader = new FileReader();
+    reader.onload = function () { resolve(reader.result); };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 function playLoadedChunk(blob, session) {
   return new Promise(function (resolve, reject) {
     if (session !== playbackSession || !state.tts.playing) {
       resolve(false);
       return;
     }
-    var url = URL.createObjectURL(blob);
-    var audio = new Audio(url);
-    audio._speechUrl = url;
-    audio._speechResolve = resolve;
-    state.tts.audio = audio;
-    audio.onended = function () {
-      URL.revokeObjectURL(url);
-      if (state.tts.audio === audio) state.tts.audio = null;
-      resolve(session === playbackSession);
-    };
-    audio.onerror = function () {
-      if (session !== playbackSession) return resolve(false);
-      reject(new Error("音频播放失败"));
-    };
-    audio.play().catch(function (error) {
-      if (session !== playbackSession) return resolve(false);
+    /* Use data URL instead of blob URL: self-contained, survives
+       iOS PWA backgrounding where blob URLs can become invalid. */
+    blobToDataURL(blob).then(function (url) {
+      if (session !== playbackSession || !state.tts.playing) {
+        resolve(false);
+        return;
+      }
+      var audio = new Audio(url);
+      audio._speechUrl = url;
+      audio._speechResolve = resolve;
+      audio.style.display = "none";
+      /* Mount to DOM 。iOS PWA may kill <audio> not in the tree
+         when switching apps or locking screen. */
+      document.body.appendChild(audio);
+      state.tts.audio = audio;
+      audio.onended = function () {
+        if (audio.parentNode) audio.parentNode.removeChild(audio);
+        if (state.tts.audio === audio) state.tts.audio = null;
+        resolve(session === playbackSession);
+      };
+      audio.onerror = function () {
+        if (audio.parentNode) audio.parentNode.removeChild(audio);
+        if (session !== playbackSession) return resolve(false);
+        reject(new Error("音频播放失败"));
+      };
+      audio.play().catch(function (error) {
+        if (audio.parentNode) audio.parentNode.removeChild(audio);
+        if (session !== playbackSession) return resolve(false);
+        reject(error);
+      });
+    }).catch(function (error) {
       reject(error);
     });
   });
@@ -252,6 +330,8 @@ export async function speakText(text, fromStart) {
   setPlaybackIcon(true);
   var session = playbackSession;
 
+  acquireWakeLock();
+
   if (settings.ttsProvider === "mimo") {
     playSpeechChunk(session);
   } else {
@@ -265,6 +345,7 @@ function playSystemSpeech(fromIndex, session) {
   window.speechSynthesis.cancel();
   state.tts.playing = true;
   state.tts.index = fromIndex || 0;
+  startSystemTtsKeepAlive();
   playSystemChunkSequential(session);
 }
 
@@ -359,6 +440,7 @@ export function playFromIndex(index) {
   setPlaybackIcon(true);
   syncSpeechBlock();
   var session = playbackSession;
+  acquireWakeLock();
   // Preload a wide range around the jump target
   for (var i = -3; i <= 3; i += 1) preloadChunk(index + i);
   if (settings.ttsProvider === "mimo") {
@@ -435,4 +517,62 @@ export function populateVoices() {
     return '<option value="' + voice.voiceURI + '">' + voice.name + " · " + voice.lang + "</option>";
   }).join("");
   el.systemVoice.value = settings.systemVoice || "";
+}
+
+/* ---- Streaming TTS: queue complete sentences as they stream in ---- */
+var streamQueuedCount = 0;
+var streamLastPushedChar = 0;
+
+function isCompleteSentence(text) {
+  var value = String(text || "").trim();
+  if (!value) return false;
+  return /[。！？!?…“”‘’」』）)]+$/.test(value);
+}
+
+export function flushStreamedParagraphs(rawContent) {
+  if (settings.ttsProvider !== "mimo") return;
+  var content = String(rawContent || "");
+  if (content.length <= streamLastPushedChar) return;
+
+  var scanFrom = Math.max(0, streamLastPushedChar - 20);
+  var tail = content.slice(scanFrom);
+  var voicePlan = buildVoicePlan(tail);
+  if (!voicePlan.length) return;
+
+  var charPos = scanFrom;
+  var pushable = [];
+  for (var i = 0; i < voicePlan.length; i++) {
+    var item = voicePlan[i];
+    var startIdx = content.indexOf(item.text, charPos);
+    if (startIdx < 0) startIdx = charPos;
+    var endIdx = startIdx + item.text.length;
+    var isLast = (i === voicePlan.length - 1);
+    if (isLast && !isCompleteSentence(item.text)) continue;
+    pushable.push({ text: item.text, voice: item.voice, endIdx: endIdx });
+    charPos = endIdx;
+  }
+
+  if (!pushable.length) return;
+  for (var j = 0; j < pushable.length; j++) {
+    var chunk = pushable[j];
+    state.tts.chunks.push(chunk.text);
+    state.tts.chunkVoices.push(chunk.voice);
+    state.tts.chunkParagraphs.push(0);
+    streamQueuedCount += 1;
+    streamLastPushedChar = Math.max(streamLastPushedChar, chunk.endIdx);
+    console.log("[TTS] 入队 voice=" + chunk.voice + " text=" + chunk.text.slice(0, 40));
+  }
+
+  if (!state.tts.playing && state.tts.chunks.length) {
+    state.tts.playing = true;
+    state.tts.index = 0;
+    setPlaybackIcon(true);
+    acquireWakeLock();
+    playSpeechChunk(playbackSession);
+  }
+}
+
+export function resetStreamedState() {
+  streamQueuedCount = 0;
+  streamLastPushedChar = 0;
 }

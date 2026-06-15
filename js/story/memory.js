@@ -30,6 +30,7 @@ export function buildSystemPrompt(story) {
     story.memory.world ? "\u4e16\u754c\u72b6\u6001\uff1a\n" + story.memory.world : "",
     story.memory.threads ? "\u5c1a\u672a\u56de\u6536\u7684\u4f0f\u7b14\uff1a\n" + story.memory.threads : "",
     story.memory.lore ? "\u7528\u6237\u8ffd\u52a0\u8bbe\u5b9a\uff1a\n" + story.memory.lore : "",
+    "【强制要求·声线标注】每句人物对话的引号后必须紧跟 [m] 或 [f]：男性角色用 [m]，女性角色用 [f]。旁白叙述不加任何标记。示例：\"你来了。\"[m] \"嗯。\"[f] \"我先走了。\"[m] 不遵守此规则会导致朗读功能失效。",
   ].filter(Boolean).join("\n\n");
 }
 

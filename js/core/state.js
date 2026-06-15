@@ -37,6 +37,9 @@ export var settings = {
   ttsNarratorVoice: "白桦",
   ttsMaleVoice: "苏打",
   ttsFemaleVoice: "冰糖",
+  readerFontSize: "18",
+  readerLineHeight: "2",
+  readerIndent: true,
 };
 
 export var el = {};
@@ -54,7 +57,9 @@ var ids = [
   "segmentEditDialog", "segmentEditor", "undoBar", "undoText",
   "rewriteChoiceDialog", "rewriteSourcePreview", "rewriteFreeBtn", "rewriteFromInputBtn",
   "deleteStoryDialog", "deleteStoryName", "confirmDeleteStoryBtn",
-  "libraryThemeBtn"
+  "libraryThemeBtn",
+  "readingSettingsBtn", "readingSettingsDialog",
+  "readerFontSize", "readerLineHeight", "readerIndentToggle"
 ];
 
 export function cacheElements() {
@@ -169,4 +174,12 @@ export function saveState() {
 
 export function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+export function applyReaderSettings() {
+  var content = document.getElementById("storyContent");
+  if (!content) return;
+  content.style.setProperty("font-size", settings.readerFontSize + "px");
+  content.style.setProperty("line-height", settings.readerLineHeight);
+  content.classList.toggle("reader-indent", settings.readerIndent);
 }

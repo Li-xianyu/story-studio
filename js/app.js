@@ -61,6 +61,25 @@ function syncComposerHeight() {
   document.documentElement.style.setProperty("--composer-height", composer.getBoundingClientRect().height + "px");
 }
 
+function syncComposerWidth() {
+  var viewport = document.getElementById("readerViewport");
+  var composer = document.querySelector(".composer");
+  var shell = document.querySelector(".reader-shell");
+  if (!viewport || !composer || !shell) return;
+  var vr = viewport.getBoundingClientRect();
+  var sr = shell.getBoundingClientRect();
+  var cs = getComputedStyle(viewport);
+  var pl = parseFloat(cs.paddingLeft) || 0;
+  var pr = parseFloat(cs.paddingRight) || 0;
+  // clientWidth 已排除滚动条 → 这才是 story-content 实际可用的内容宽度
+  var contentWidth = viewport.clientWidth - pl - pr;
+  var contentLeft = vr.left + pl - sr.left;
+  composer.style.left = contentLeft + "px";
+  composer.style.width = contentWidth + "px";
+  composer.style.transform = "none";
+  composer.style.maxWidth = "none";
+}
+
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
   navigator.serviceWorker.register("./sw.js").then(function (reg) {
@@ -174,11 +193,17 @@ function init() {
   populateVoices();
   syncAll();
   syncComposerHeight();
+  requestAnimationFrame(function () {
+    syncComposerWidth();
+  });
   bindLiquidGlass();
   window.addEventListener("resize", syncComposerHeight);
+  window.addEventListener("resize", syncComposerWidth);
   if (window.ResizeObserver) {
     var composerObserver = new ResizeObserver(syncComposerHeight);
     composerObserver.observe(document.querySelector(".composer"));
+    var viewportObserver = new ResizeObserver(syncComposerWidth);
+    viewportObserver.observe(document.getElementById("readerViewport"));
   }
   if (window.lucide && typeof window.lucide.createIcons === "function") {
     window.lucide.createIcons();

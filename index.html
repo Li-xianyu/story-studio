@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -78,6 +78,7 @@
         <button id="exportBtn" class="library-tool-btn"><i data-lucide="upload"></i><span>导出</span></button>
         <button id="installAppBtn" class="library-tool-btn install-app-entry" hidden><i data-lucide="monitor-down"></i><span>安装到桌面</span></button>
         <button id="settingsBtn" class="quiet-btn settings-entry"><i data-lucide="settings"></i><span>模型与朗读设置</span></button>
+        <button id="readingSettingsBtn" class="quiet-btn settings-entry"><i data-lucide="book"></i><span>阅读设置</span></button>
         <input id="importInput" type="file" accept=".json,.md,.txt" hidden>
       </div>
     </aside>
@@ -286,8 +287,7 @@
         <label>API Key<input id="apiKey" type="password" autocomplete="off"></label>
         <label>模型<input id="apiModel" placeholder="deepseek-chat"></label>
         <label>Temperature<input id="temperature" type="number" min="0" max="2" step="0.1"></label>
-        <button id="importMoyuConfigBtn" type="button" class="quiet-btn wide">读取 MOYU 当前接口配置</button>
-      </section>
+              </section>
       <section data-settings-panel="tts" hidden>
         <label>朗读方式
           <custom-select>
@@ -392,6 +392,38 @@
     </form>
   </dialog>
 
+  <dialog id="readingSettingsDialog" class="modal">
+    <form method="dialog">
+      <div class="modal-head"><div><strong>阅读设置</strong><small>字体与排版</small></div><button type="button" class="icon-btn" data-close-dialog="readingSettingsDialog" title="关闭" aria-label="关闭"><i data-lucide="x"></i></button></div>
+      <div class="reading-settings-body">
+        <label>字体大小
+          <custom-select>
+            <select id="readerFontSize">
+              <option value="16">小 · 16px</option>
+              <option value="18" selected>中 · 18px</option>
+              <option value="20">大 · 20px</option>
+              <option value="24">特大 · 24px</option>
+            </select>
+          </custom-select>
+        </label>
+        <label>行间距
+          <custom-select>
+            <select id="readerLineHeight">
+              <option value="1.6">紧凑 · 1.6</option>
+              <option value="2" selected>舒适 · 2.0</option>
+              <option value="2.4">宽松 · 2.4</option>
+            </select>
+          </custom-select>
+        </label>
+        <label class="switch-label">
+          <input id="readerIndentToggle" type="checkbox">
+          <span></span>段落首行缩进
+        </label>
+      </div>
+      <div class="modal-actions"><button type="button" class="quiet-btn" data-close-dialog="readingSettingsDialog">关闭</button></div>
+    </form>
+  </dialog>
+
   <div id="undoBar" class="undo-bar">
     <span id="undoText">已修改正文</span>
     <button id="undoBtn" type="button">撤销</button>
@@ -402,3 +434,4 @@
   <script type="module" src="./js/app.js?v=20260613v"></script>
 </body>
 </html>
+

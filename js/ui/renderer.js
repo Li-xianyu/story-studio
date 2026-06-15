@@ -2,8 +2,9 @@
    浮光剧场 · Renderer
    ============================================================ */
 
-import { state, settings, el, getStory, getChapter, isPristineStory } from "../core/state.js";
+import { state, settings, el, getStory, getChapter, isPristineStory, applyReaderSettings } from "../core/state.js";
 import { escapeHtml } from "../core/utils.js";
+import { stripVoiceMarkers } from "../core/speech-track.js";
 
 export function renderAll() {
   renderStoryList();
@@ -44,7 +45,8 @@ export function renderChapterList() {
 }
 
 export function segmentHtml(segment, speechOffset, isLast) {
-  var content = escapeHtml(segment.content || "");
+  var content = stripVoiceMarkers(segment.content || "");
+  content = escapeHtml(content);
   var paragraphs = content.split(/\n\s*\n+/).filter(Boolean);
   var offset = Number(speechOffset) || 0;
   var actions = segment.streaming ? "" : '<div class="segment-actions">' +
@@ -85,6 +87,7 @@ export function renderStory(options) {
     speechOffset += String(segment.content || "").split(/\n\s*\n+/).filter(Boolean).length;
     return html;
   }).join("");
+  applyReaderSettings();
   if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
   el.storyTitle.textContent = story.title;
   var words = chapter.segments.reduce(function (sum, segment) { return sum + String(segment.content || "").length; }, 0);

@@ -1,9 +1,9 @@
-/* ============================================================
-   浮光剧场 · Dialogs
+﻿/* ============================================================
+   娴厜鍓у満 路 Dialogs
    ============================================================ */
 
 import { state, settings, el, saveSettings, getStory, saveState } from "../core/state.js";
-import { safeParse, toast } from "../core/utils.js";
+import { toast } from "../core/utils.js";
 import { renderAll, renderStory, renderChapterList } from "./renderer.js";
 import { populateVoices, speakText } from "../core/tts.js";
 
@@ -47,32 +47,6 @@ export function saveSettingsForm() {
   toast(el.toast, "\u8bbe\u7f6e\u5df2\u4fdd\u5b58");
 }
 
-export function readMoyuSettings() {
-  var moyu = safeParse(localStorage.getItem("moyu-settings"), null);
-  if (!moyu) return toast(el.toast, "\u6ca1\u6709\u627e\u5230 MOYU \u914d\u7f6e");
-  var configs = Array.isArray(moyu.configs) ? moyu.configs : [];
-  var config = configs.find(function (item) { return item.id === moyu.activeConfigId; }) || configs[0];
-  if (config) {
-    el.apiHost.value = config.host || "";
-    el.apiKey.value = config.key || "";
-    el.apiModel.value = moyu.assistant && moyu.assistant.model || (config.workModels && config.workModels[0]) || "";
-  }
-  if (moyu.tts) {
-    el.ttsProvider.value = moyu.tts.provider || "system";
-    el.ttsHost.value = moyu.tts.host || settings.ttsHost;
-    el.ttsKey.value = moyu.tts.apiKey || "";
-    el.ttsModel.value = moyu.tts.model || settings.ttsModel;
-    el.ttsNarratorVoice.value = moyu.tts.narratorVoice || moyu.tts.voice || settings.ttsNarratorVoice;
-    el.ttsMaleVoice.value = moyu.tts.maleVoice || settings.ttsMaleVoice;
-    el.ttsFemaleVoice.value = moyu.tts.femaleVoice || settings.ttsFemaleVoice;
-    el.systemVoice.value = moyu.tts.systemVoice || "";
-    el.systemPitch.value = moyu.tts.systemPitch || 1;
-    syncCustomSelect(el.ttsProvider);
-    syncCustomSelect(el.systemVoice);
-    syncTtsProviderFields();
-  }
-  toast(el.toast, "\u5df2\u8bfb\u53d6 MOYU \u5f53\u524d\u914d\u7f6e");
-}
 
 export function openSegmentEditor(segmentId) {
   var found = findSegment(segmentId);

@@ -23,7 +23,7 @@
   top: calc(max(12px, env(safe-area-inset-top)) + 58px);
   bottom: 10px;
   left: 10px;
-  width: 280px;
+  width: min(300px, calc(100vw * 0.24));
   isolation: isolate;
   display: flex; flex-direction: column;
   margin: 0;
@@ -367,7 +367,7 @@
   top: calc(max(12px, env(safe-area-inset-top)) + 58px);
   right: 10px;
   bottom: 10px;
-  width: min(92vw, 320px);
+  width: min(300px, calc(100vw * 0.24));
   display: flex; flex-direction: column;
   padding: 20px 0 0;
   border-radius: var(--radius-xl);

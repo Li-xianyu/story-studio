@@ -1,5 +1,5 @@
-/* ============================================================
-   浮光剧场 · Responsive
+﻿/* ============================================================
+   娴厜鍓у満 路 Responsive
    ============================================================ */
 
 /* === Focus Mode === */
@@ -7,15 +7,34 @@
 .focus-mode .reader-shell { grid-rows: minmax(0, 1fr) auto; }
 .focus-mode .exit-focus-btn { display: grid; place-items: center; }
 
-/* === Tablet === */
-@media (max-width: 1100px) {
-  .library-panel { width: 250px; }
-  .composer { width: min(720px, calc(100% - 28px)); }
+/* === Desktop: 渚ф爮鎵撳紑鏃讹紝鍐呭鍖鸿嚜鍔ㄧ缉鐭?=== */
+@media (min-width: 761px) {
+  body { --g-left: 0px; --g-right: 0px; }
+  body:not(.library-collapsed) { --g-left: calc(10px + min(300px, 100vw * 0.24)); }
+  body:has(.controls-panel.open) { --g-right: calc(10px + min(300px, 100vw * 0.24)); }
+  .reader-viewport {
+    --g-mid: max(24px, calc((100% - var(--g-left) - var(--g-right) - var(--reader-width)) / 2));
+    padding-left: calc(var(--g-left) + var(--g-mid));
+    padding-right: calc(var(--g-right) + var(--g-mid));
+  }
+  .composer {
+    --g-free: calc(100% - var(--g-left) - var(--g-right));
+    --c-mid: max(24px, (var(--g-free) - var(--reader-width)) / 2);
+    left: calc(var(--g-left) + var(--c-mid));
+    width: calc(var(--g-free) - 2 * var(--c-mid));
+    max-width: var(--reader-width);
+    transform: none;
+  }
 }
 
 /* === Mobile === */
 @media (max-width: 760px) {
   .app-shell { display: block; isolation: auto; }
+  /*
+   * Mobile: library-collapsed 在桌面端表示「收起面板」(隐藏),
+   * 但在移动端被覆盖为「面板隐藏到屏幕左侧外, 等待滑入」,
+   * 因为手机端用 .open class 控制 drawer 显隐, 不受 desktop collapsed 影响.
+   */
   .library-collapsed .library-panel {
     opacity: 1;
     visibility: visible;
@@ -38,8 +57,12 @@
     right: 8px;
     bottom: 8px;
     height: auto;
+    width: min(88vw, 300px);
     background: var(--bg-elevated);
+    transform: translateX(calc(100% + 24px));
+    transition: transform .35s var(--ease-fluid);
   }
+  .controls-panel.open { transform: none; }
 
   .reader-shell { height: 100%; grid-template-rows: minmax(0, 1fr) auto; }
   .reader-header { inset-inline: 8px; }
@@ -139,7 +162,7 @@
   .two-columns, .three-columns { grid-template-columns: 1fr; }
   .rewrite-choice-actions { grid-template-columns: 1fr; }
 
-  /* 欢迎页保留汉堡按钮 */
+  /* 娆㈣繋椤典繚鐣欐眽鍫℃寜閽?*/
   .welcome-mode .reader-header {
     display: flex;
   }
