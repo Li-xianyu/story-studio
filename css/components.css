@@ -295,6 +295,11 @@
   font-size: 14px;
   line-height: 1;
 }
+
+#segmentEditor {
+  max-height: 60vh;
+  resize: vertical;
+}
 #settingsStatus {
   margin-right: auto; color: var(--text-tertiary); font-size: 12px;
 }

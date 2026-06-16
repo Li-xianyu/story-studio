@@ -522,7 +522,7 @@
   color: var(--text-primary); font-size: 13px; font-weight: 500;
 }
 .settings-textarea-group textarea {
-  width: 100%; min-height: 72px;
+  width: 100%; min-height: 72px; max-height: 220px;
   color: var(--text-secondary); font-size: 13px; font-weight: 400;
   text-align: left;
   background: rgba(255,255,255,.05);
