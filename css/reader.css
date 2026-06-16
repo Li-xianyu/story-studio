@@ -176,13 +176,13 @@ body.audio-panel-open .reader-viewport {
     inset 0 1px 0 var(--glass-highlight);
   border: 1px solid var(--glass-border);
   opacity: 0; visibility: hidden;
-  transform: translateY(calc(-50% + 6px)) scale(0.95);
-  transition: .2s var(--ease-spring);
+  transform: translateY(-50%) scale(0.95);
+  transition: opacity .18s var(--ease-spring), transform .18s var(--ease-spring), visibility 0s .18s;
 }
 .segment.actions-bottom .segment-actions {
   top: auto;
   bottom: 0;
-  transform: translateY(calc(50% - 6px)) scale(0.95);
+  transform: translateY(50%) scale(0.95);
 }
 .segment.actions-open .segment-actions,
 .segment:has([data-confirming="true"]) .segment-actions {
