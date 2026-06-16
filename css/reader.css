@@ -201,6 +201,16 @@ body.audio-panel-open .reader-viewport {
   }
 }
 
+/* When segment is taller than viewport, pin actions to top-right */
+.segment.actions-fixed .segment-actions {
+  position: fixed;
+  top: calc(max(10px, env(safe-area-inset-top)) + 58px);
+  right: 10px;
+  bottom: auto;
+  z-index: 80;
+  transform: none;
+}
+
 .segment-action {
   display: grid; place-items: center; width: 30px; height: 30px;
   border-radius: var(--radius-pill);
