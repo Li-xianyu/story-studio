@@ -15,9 +15,10 @@ import { streamCompletion } from "../core/api.js";
 import { parseInlineSpeechTrack, stripVoiceMarkers, buildSpeechAnnotationInput, parseSpeechAnnotation } from "../core/speech-track.js";
 
 function isReaderNearBottom() {
-  return el.readerViewport.scrollHeight - el.readerViewport.scrollTop - el.readerViewport.clientHeight < 120;
+  return el.readerViewport.scrollHeight - el.readerViewport.scrollTop - el.readerViewport.clientHeight < 40;
 }
 var userScrolledAway = false;
+var userIsTouching = false;
 
 async function annotateSpeechTrack(story, content) {
   var numbered = buildSpeechAnnotationInput(content);
@@ -184,9 +185,10 @@ function claimIncompleteTail(chapter, insertIndex) {
 
 async function generateNarrative(instruction, source, metadata) {
   if (state.generating) return;
+  state.generating = true;
   var story = getStory();
   var chapter = getChapter();
-  if (!story || !chapter) return;
+  if (!story || !chapter) { state.generating = false; return; }
   story.started = true;
   var segment = {
     id: uid("segment"),
@@ -240,7 +242,7 @@ async function generateNarrative(instruction, source, metadata) {
         streamingNode = document.querySelector('[data-segment-id="' + segment.id + '"]');
         if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
       }
-      if (!userScrolledAway) {
+      if (!userScrolledAway && !userIsTouching) {
         el.readerViewport.scrollTop = el.readerViewport.scrollHeight;
       }
     }, { maxTokens: getLengthMaxTokens(story.length) });
@@ -303,7 +305,9 @@ async function generateNarrative(instruction, source, metadata) {
   } finally {
     console.groupEnd();
     state.abortController = null;
+    state.generating = false;
     setBusy(el, false);
+    syncScrollToBottomBtn();
   }
 }
 
@@ -763,9 +767,29 @@ export function bindEvents() {
   });
   el.readerViewport.addEventListener("scroll", function () {
     userScrolledAway = !isReaderNearBottom();
+    syncScrollToBottomBtn();
     var activeSegment = el.storyContent.querySelector(".segment:hover, .segment.actions-open");
     if (activeSegment) syncSegmentActionPlacement(activeSegment);
   }, { passive: true });
+  el.readerViewport.addEventListener("pointerdown", function (event) {
+    if (event.pointerType === "mouse") return;
+    userIsTouching = true;
+  });
+  el.readerViewport.addEventListener("pointerup", function () {
+    userIsTouching = false;
+  });
+  el.readerViewport.addEventListener("pointercancel", function () {
+    userIsTouching = false;
+  });
+  function syncScrollToBottomBtn() {
+    var show = userScrolledAway && state.generating;
+    el.scrollToBottomBtn.classList.toggle("hidden", !show);
+  }
+  el.scrollToBottomBtn.addEventListener("click", function () {
+    userScrolledAway = false;
+    el.readerViewport.scrollTop = el.readerViewport.scrollHeight;
+    el.scrollToBottomBtn.classList.add("hidden");
+  });
   var longPressTimer = 0;
   var longPressStart = null;
   var longPressTriggered = false;

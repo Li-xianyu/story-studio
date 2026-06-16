@@ -59,7 +59,7 @@ var ids = [
   "deleteStoryDialog", "deleteStoryName", "confirmDeleteStoryBtn",
   "libraryThemeBtn",
   "readingSettingsBtn", "readingSettingsDialog",
-  "readerFontSize", "readerLineHeight", "readerIndentToggle"
+  "readerFontSize", "readerLineHeight", "readerIndentToggle", "scrollToBottomBtn"
 ];
 
 export function cacheElements() {
