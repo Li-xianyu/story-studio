@@ -490,6 +490,14 @@ function syncSegmentActionPlacement(segmentNode) {
     segmentRect.bottom >= viewportRect.top + 48;
   segmentNode.classList.toggle("actions-bottom", !topVisible && bottomVisible);
   segmentNode.classList.toggle("actions-fixed", !topVisible && !bottomVisible);
+  var actionsEl = segmentNode.querySelector(".segment-actions");
+  if (!actionsEl) return;
+  if (!topVisible && !bottomVisible) {
+    var storyRect = el.storyContent.getBoundingClientRect();
+    actionsEl.style.right = Math.max(4, window.innerWidth - storyRect.right + 4) + "px";
+  } else {
+    actionsEl.style.right = "";
+  }
 }
 
 async function copySegmentContent(segmentId, button) {
