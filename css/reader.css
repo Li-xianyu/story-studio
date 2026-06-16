@@ -234,9 +234,10 @@ body.audio-panel-open .reader-viewport {
 
 /* === Scroll-to-bottom FAB === */
 .scroll-to-bottom-btn {
-  position: sticky; bottom: 20px; left: 100%;
+  position: sticky; bottom: 20px;
+  float: right; margin-right: 16px;
   display: grid; place-items: center;
-  width: 40px; height: 40px; margin-right: 8px;
+  width: 40px; height: 40px;
   border-radius: 50%;
   background: var(--glass-bg-thick);
   backdrop-filter: blur(16px) saturate(180%);
