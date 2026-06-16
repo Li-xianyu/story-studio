@@ -33,7 +33,7 @@
     inset 0 -0.5px 0 rgba(0,0,0,0.12);
   border: 1px solid var(--glass-border);
   pointer-events: auto;
-  transition: all .25s var(--ease-fluid);
+  transition: background .25s ease, box-shadow .25s ease, opacity .25s ease;
 }
 .header-bubble::before {
   content: "";
