@@ -770,6 +770,7 @@ export function bindEvents() {
   var longPressStart = null;
   var longPressTriggered = false;
   var lastMobileTap = null;
+  var singleTapTimer = 0;
 
   function playParagraphFromNode(paragraph) {
     if (!state.tts.playing && !el.playerBar.classList.contains("open")) return;
@@ -777,6 +778,20 @@ export function bindEvents() {
     if (!Number.isFinite(index)) return;
     window.getSelection().removeAllRanges();
     playChapterFromIndex(index);
+  }
+
+  function toggleSegmentActions(segmentNode) {
+    var wasOpen = segmentNode.classList.contains("actions-open");
+    el.storyContent.querySelectorAll(".segment.actions-open").forEach(function (node) {
+      if (node !== segmentNode) node.classList.remove("actions-open", "actions-fixed", "actions-bottom");
+    });
+    if (wasOpen) {
+      segmentNode.classList.remove("actions-open", "actions-fixed", "actions-bottom");
+    } else {
+      syncSegmentActionPlacement(segmentNode);
+      segmentNode.classList.add("actions-open");
+      window.getSelection().removeAllRanges();
+    }
   }
 
   el.storyContent.addEventListener("pointerdown", function (event) {
@@ -795,16 +810,12 @@ export function bindEvents() {
     clearTimeout(longPressTimer);
     longPressTimer = setTimeout(function () {
       longPressTriggered = true;
+      clearTimeout(singleTapTimer);
       lastMobileTap = null;
       navigator.vibrate && navigator.vibrate(20);
-      el.storyContent.querySelectorAll(".segment.actions-open").forEach(function (node) {
-        if (node !== segmentNode) node.classList.remove("actions-open", "actions-fixed", "actions-bottom");
-      });
-      syncSegmentActionPlacement(segmentNode);
-      segmentNode.classList.add("actions-open");
-      window.getSelection().removeAllRanges();
+      toggleSegmentActions(segmentNode);
       longPressStart = null;
-    }, 520);
+    }, 320);
   });
   el.storyContent.addEventListener("pointermove", function (event) {
     if (!longPressStart) return;
@@ -819,15 +830,23 @@ export function bindEvents() {
         Date.now() - longPressStart.time < 320 &&
         Math.hypot(event.clientX - longPressStart.x, event.clientY - longPressStart.y) <= 10) {
       var now = Date.now();
+      var block = longPressStart.block;
+      var segmentNode = longPressStart.segment;
       if (lastMobileTap &&
-          lastMobileTap.block === longPressStart.block &&
-          now - lastMobileTap.time <= 360 &&
-          Math.hypot(event.clientX - lastMobileTap.x, event.clientY - lastMobileTap.y) <= 24) {
+          lastMobileTap.block === block &&
+          now - lastMobileTap.time <= 380 &&
+          Math.hypot(event.clientX - lastMobileTap.x, event.clientY - lastMobileTap.y) <= 28) {
         event.preventDefault();
-        playParagraphFromNode(longPressStart.block);
+        clearTimeout(singleTapTimer);
+        playParagraphFromNode(block);
         lastMobileTap = null;
       } else {
-        lastMobileTap = { block: longPressStart.block, time: now, x: event.clientX, y: event.clientY };
+        clearTimeout(singleTapTimer);
+        lastMobileTap = { block: block, time: now, x: event.clientX, y: event.clientY, segment: segmentNode };
+        singleTapTimer = setTimeout(function () {
+          if (lastMobileTap) toggleSegmentActions(lastMobileTap.segment);
+          lastMobileTap = null;
+        }, 360);
       }
     }
     longPressStart = null;
@@ -835,6 +854,7 @@ export function bindEvents() {
   });
   el.storyContent.addEventListener("pointercancel", function () {
     clearTimeout(longPressTimer);
+    clearTimeout(singleTapTimer);
     longPressStart = null;
     longPressTriggered = false;
   });

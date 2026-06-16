@@ -170,6 +170,7 @@ export function stopSpeech() {
   state.tts.paused = false;
   setPlaybackIcon(false);
   syncSpeechBlock();
+  syncSegmentPlaybackButtons();
   releaseWakeLock();
   stopSystemTtsKeepAlive();
 }
