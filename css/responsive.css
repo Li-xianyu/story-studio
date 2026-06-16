@@ -10,8 +10,6 @@
 /* === Desktop: 渚ф爮鎵撳紑鏃讹紝鍐呭鍖鸿嚜鍔ㄧ缉鐭?=== */
 @media (min-width: 761px) {
   body { --g-left: 0px; --g-right: 0px; }
-  body:not(.library-collapsed) { --g-left: calc(10px + min(300px, 100vw * 0.24)); }
-  body:has(.controls-panel.open) { --g-right: calc(10px + min(300px, 100vw * 0.24)); }
   .reader-viewport {
     --g-mid: max(24px, calc((100% - var(--g-left) - var(--g-right) - var(--reader-width)) / 2));
     padding-left: calc(var(--g-left) + var(--g-mid));
