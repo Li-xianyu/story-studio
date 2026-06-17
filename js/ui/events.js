@@ -1127,16 +1127,19 @@ export function bindEvents() {
 	        resetMemoryBtn.classList.remove("confirming");
 	        resetMemoryBtn.innerHTML = '<i data-lucide="rotate-ccw"></i><span>重置记忆</span>';
 	        if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
-	        // 执行清空
-	        var story = getStory();
-	        if (story && story.memory) {
-	          story.memory.chapterSummaries = {};
-	          story.memory.characters = "";
-	          story.memory.worldConstants = "";
-	          story.memory.worldEvolution = "";
-	          story.memory.threads = "";
-	          story.memory.characterAttributes = "";
-	        }
+		        // 执行清空（含旧版遗留字段）
+		        var story = getStory();
+		        if (story && story.memory) {
+		          story.memory.chapterSummaries = {};
+		          story.memory.characters = "";
+		          story.memory.worldConstants = "";
+		          story.memory.worldEvolution = "";
+		          story.memory.threads = "";
+		          story.memory.characterAttributes = "";
+		          // 旧版遗留字段一并清理
+		          delete story.memory.summary;
+		          delete story.memory.world;
+		        }
 	        touchStory();
 	        renderMemory();
 	        toast(el.toast, "记忆已清空，可重新整理");

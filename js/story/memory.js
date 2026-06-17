@@ -78,14 +78,22 @@ export function recentNarrative(chapter) {
 export async function summarizeMemory() {
   if (state.generating) return;
   var story = getStory();
-  var chapter = getChapter();
   setBusy(true, "正在整理故事记忆…");
   try {
-    var isFullRebuild = !Object.keys(story.memory.chapterSummaries || {}).length;
-    var targetChapters = isFullRebuild ? story.chapters : [chapter];
-    for (var ci = 0; ci < targetChapters.length; ci++) {
-      var ch = targetChapters[ci];
+    var summarizedAny = false;
+    for (var ci = 0; ci < story.chapters.length; ci++) {
+      var ch = story.chapters[ci];
       if (!ch.segments.some(function (s) { return String(s.content || "").trim(); })) continue;
+      // 判断本章是否需要整理
+      var hasSummary = !!story.memory.chapterSummaries[ch.id];
+      var hasCommitted = !!ch.memoryCommittedAt;
+      var latestSegCreatedAt = "";
+      ch.segments.forEach(function (s) { if (s.createdAt && s.createdAt > latestSegCreatedAt) latestSegCreatedAt = s.createdAt; });
+      var hasNewContent = hasCommitted && latestSegCreatedAt > ch.memoryCommittedAt;
+      var needsSummarize = !hasSummary || !hasCommitted || hasNewContent;
+      if (!needsSummarize) continue;
+
+      summarizedAny = true;
       var chRecent = ch.segments.slice(-12).map(function (s) { return s.content; }).filter(Boolean).join("\n\n").slice(-18000);
       var oldSummary = story.memory.chapterSummaries[ch.id] || "";
       var prompt = [
@@ -112,11 +120,9 @@ export async function summarizeMemory() {
       ], function (delta) { result += delta; });
       var cleaned = result.replace(/^```json\s*|```$/g, "").trim();
       var mem = JSON.parse(cleaned);
-      // 分章存储摘要
       if (typeof mem.summary === "string" && mem.summary.trim()) {
         story.memory.chapterSummaries[ch.id] = mem.summary.trim();
       }
-      // 全局字段：叠加
       function mergeField(key) {
         if (typeof mem[key] === "string" && mem[key].trim()) {
           var old = story.memory[key] || "";
@@ -129,10 +135,11 @@ export async function summarizeMemory() {
       mergeField("worldEvolution");
       mergeField("threads");
       mergeField("characterAttributes");
+      ch.memoryCommittedAt = new Date().toISOString();
     }
     touchStory();
     renderMemory();
-    toast(el.toast, isFullRebuild ? "故事记忆已全部重建" : "故事记忆已更新");
+    toast(el.toast, summarizedAny ? "故事记忆已更新" : "各章节均无新增内容，无需整理");
   } catch (error) {
     if (error.name !== "AbortError") toast(el.toast, "整理失败：" + error.message);
   } finally {

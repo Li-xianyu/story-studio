@@ -173,10 +173,15 @@ export function loadState() {
 	      delete story.memory.world;
 	      memMigrated = true;
 	    }
-	    story.memory.chapterSummaries = story.memory.chapterSummaries || {};
-	    story.memory.worldConstants = story.memory.worldConstants || "";
-	    story.memory.worldEvolution = story.memory.worldEvolution || "";
-	    story.memory.characterAttributes = story.memory.characterAttributes || "";
+		    if (story.memory) {
+		      story.memory.chapterSummaries = story.memory.chapterSummaries || {};
+		      story.memory.worldConstants = story.memory.worldConstants || "";
+		      story.memory.worldEvolution = story.memory.worldEvolution || "";
+		      story.memory.characterAttributes = story.memory.characterAttributes || "";
+		      // 旧版遗留字段二次清理
+		      delete story.memory.summary;
+		      delete story.memory.world;
+		    }
 	  });
   var storyCountBeforeMigration = state.stories.length;
   state.stories = state.stories.filter(function (story) {
