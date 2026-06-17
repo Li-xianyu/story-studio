@@ -704,6 +704,7 @@ export function bindEvents() {
     }
   });
   document.addEventListener("click", function (event) {
+    if (!event.target.isConnected) return;
     if (!event.target.closest("[data-confirming='true']")) {
       resetInlineConfirm();
     }
