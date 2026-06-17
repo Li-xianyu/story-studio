@@ -75,10 +75,78 @@ export function recentNarrative(chapter) {
   }).join("\n\n").slice(-18000);
 }
 
+/* ---- 记忆整理轮播标语 ---- */
+
+var _carouselTimer = null;
+var _carouselFadeTimer = null;
+var _carouselRunning = false;
+
+function startCarousel(labels) {
+  stopCarousel();
+  if (!labels || !labels.length) return;
+  _carouselRunning = true;
+  el.statusText.classList.add("carousel");
+  el.statusText.textContent = labels[0];
+  var idx = 0;
+  _carouselTimer = setInterval(function () {
+    idx = (idx + 1) % labels.length;
+    el.statusText.classList.add("fade-out");
+    _carouselFadeTimer = setTimeout(function () {
+      if (!_carouselRunning) return;
+      el.statusText.textContent = labels[idx];
+      el.statusText.classList.remove("fade-out");
+    }, 350);
+  }, 2500);
+}
+
+function stopCarousel() {
+  _carouselRunning = false;
+  if (_carouselTimer) { clearInterval(_carouselTimer); _carouselTimer = null; }
+  if (_carouselFadeTimer) { clearTimeout(_carouselFadeTimer); _carouselFadeTimer = null; }
+  el.statusText.classList.remove("carousel", "fade-out");
+}
+
+async function generateMemoryLabels(story) {
+  try {
+    var result = "";
+    await streamCompletion([
+      {
+        role: "system",
+        content: "你是小说记忆编辑助手。只返回 JSON 数组，不要任何其他内容。"
+      },
+      {
+        role: "user",
+        content: [
+          "根据以下故事设定，生成 5~8 条简洁的"记忆整理标语"——描述你正在做什么的短句。",
+          "要求：每条 8~15 个中文字，口语化、有趣、贴合故事内容。",
+          '返回纯 JSON 数组，如 ["正在梳理人物关系脉络","已记载李咸鱼的修炼历程"]',
+          "故事设定：" + (story.premise || "未设定")
+        ].join("\n")
+      }
+    ], function (delta) { result += delta; }, {
+      maxTokens: 256,
+      temperature: 0.7,
+      thinking: "disabled"
+    });
+    var cleaned = result.replace(/^```json\s*|```$/g, "").trim();
+    var arr = JSON.parse(cleaned);
+    if (Array.isArray(arr) && arr.length && arr.every(function (s) { return typeof s === "string" && s.trim(); })) {
+      return arr.map(function (s) { return s.trim(); });
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/* ---- 整理记忆主流程 ---- */
+
 export async function summarizeMemory() {
   if (state.generating) return;
   var story = getStory();
   setBusy(true, "正在整理故事记忆…");
+  var labels = await generateMemoryLabels(story);
+  if (labels) startCarousel(labels);
   try {
     var summarizedAny = false;
     for (var ci = 0; ci < story.chapters.length; ci++) {
@@ -94,11 +162,14 @@ export async function summarizeMemory() {
       if (!needsSummarize) continue;
 
       summarizedAny = true;
+      var chapterIndex = ci + 1;
       var chRecent = ch.segments.slice(-12).map(function (s) { return s.content; }).filter(Boolean).join("\n\n").slice(-18000);
       var oldSummary = story.memory.chapterSummaries[ch.id] || "";
       var prompt = [
         "请分析以下小说正文，为指定章节生成或更新记忆。返回严格 JSON，不使用 Markdown 代码块。",
-        '{"summary":"本章剧情摘要（写清楚是第几章）","characters":"人物关系（全局，不标章节）","worldConstants":"世界观、力量体系、不变规则","worldEvolution":"随剧情演化的状态、地点、物品","threads":"未解决的悬念与伏笔","characterAttributes":"主角外貌、衣着、修为/武力等（按世界观定属性项）"}',
+        "当前是第 " + chapterIndex + " 章，标题：「" + ch.title + "」。",
+        '{"summary":"本章剧情摘要，必须以【第' + chapterIndex + '章】开头，不要自行编造章节编号","characters":"人物关系（全局，输出完整最新版，非增量）","worldConstants":"世界观、力量体系、不变规则（输出完整最新版，非增量）","worldEvolution":"随剧情演化的状态、地点、物品（输出完整最新版，非增量）","threads":"未解决的悬念与伏笔（输出完整最新版，非增量）","characterAttributes":"主角外貌、衣着、修为/武力等（输出完整最新版，非增量）"}',
+        "要求：人物关系、世界观、世界演化、伏笔、主角属性这五个字段，请基于已有记录和本章新内容输出完整的最新版本——保留已有记录中仍然准确的部分，删除已不再适用的内容，融入本章新增的信息。不要输出增量补充。",
         "已有记录：\n" + JSON.stringify({
           chapterSummary: oldSummary.slice(0, 3000),
           characters: (story.memory.characters || "").slice(0, 3000),
@@ -123,18 +194,13 @@ export async function summarizeMemory() {
       if (typeof mem.summary === "string" && mem.summary.trim()) {
         story.memory.chapterSummaries[ch.id] = mem.summary.trim();
       }
-      function mergeField(key) {
+      // 非摘要字段：原位覆盖，不再拼接
+      var mergeKeys = ["characters", "worldConstants", "worldEvolution", "threads", "characterAttributes"];
+      mergeKeys.forEach(function (key) {
         if (typeof mem[key] === "string" && mem[key].trim()) {
-          var old = story.memory[key] || "";
-          var nu = mem[key].trim();
-          story.memory[key] = [old, "【补充】\n" + nu].filter(Boolean).join("\n\n").slice(-30000);
+          story.memory[key] = mem[key].trim();
         }
-      }
-      mergeField("characters");
-      mergeField("worldConstants");
-      mergeField("worldEvolution");
-      mergeField("threads");
-      mergeField("characterAttributes");
+      });
       ch.memoryCommittedAt = new Date().toISOString();
     }
     touchStory();
@@ -143,6 +209,7 @@ export async function summarizeMemory() {
   } catch (error) {
     if (error.name !== "AbortError") toast(el.toast, "整理失败：" + error.message);
   } finally {
+    stopCarousel();
     state.abortController = null;
     setBusy(false);
   }
@@ -164,13 +231,18 @@ export async function prepareChapterMemory() {
   if (!sourceChapters.length) return true;
 
   setBusy(true, "正在整理前文…");
+  var labels = await generateMemoryLabels(story);
+  if (labels) startCarousel(labels);
   try {
     for (var si = 0; si < sourceChapters.length; si++) {
       var ch = sourceChapters[si];
+      var chapterIndex = story.chapters.indexOf(ch) + 1;
       var chText = ch.segments.map(function (s) { return s.content; }).filter(Boolean).join("\n\n").slice(-18000);
       var prompt = [
         "即将进入新章节。请为以下章节生成独立记忆条目，返回严格 JSON，不使用 Markdown 代码块。",
-        '{"summary":"本章剧情摘要（写清楚是第几章）","characters":"人物关系（全局补充）","worldConstants":"世界观、力量体系、不变规则","worldEvolution":"本章涉及的状态变化","threads":"仍未解决的目标、冲突、悬念与伏笔","characterAttributes":"主角属性更新"}',
+        "当前归档的是第 " + chapterIndex + " 章，标题：「" + ch.title + "」。",
+        '{"summary":"本章剧情摘要，必须以【第' + chapterIndex + '章】开头，不要自行编造章节编号","characters":"人物关系（全局，输出完整最新版，非增量）","worldConstants":"世界观、力量体系、不变规则（输出完整最新版，非增量）","worldEvolution":"本章涉及的状态变化（输出完整最新版，非增量）","threads":"仍未解决的目标、冲突、悬念与伏笔（输出完整最新版，非增量）","characterAttributes":"主角属性更新（输出完整最新版，非增量）"}',
+        "要求：人物关系、世界观、世界演化、伏笔、主角属性这五个字段，请基于已有记录和本章内容输出完整的最新版本——保留已有记录中仍然准确的部分，删除已不再适用的内容，融入本章新增的信息。不要输出增量补充。",
         "已有记忆基础：\n" + JSON.stringify({
           characters: (story.memory.characters || "").slice(0, 3000),
           worldConstants: (story.memory.worldConstants || "").slice(0, 3000),
@@ -193,18 +265,13 @@ export async function prepareChapterMemory() {
       if (typeof mem.summary === "string" && mem.summary.trim()) {
         story.memory.chapterSummaries[ch.id] = mem.summary.trim();
       }
-      function mergeField(key) {
+      // 非摘要字段：原位覆盖，不再拼接
+      var mergeKeys = ["characters", "worldConstants", "worldEvolution", "threads", "characterAttributes"];
+      mergeKeys.forEach(function (key) {
         if (typeof mem[key] === "string" && mem[key].trim()) {
-          var old = story.memory[key] || "";
-          var nu = mem[key].trim();
-          story.memory[key] = [old, "【补充】\n" + nu].filter(Boolean).join("\n\n").slice(-30000);
+          story.memory[key] = mem[key].trim();
         }
-      }
-      mergeField("characters");
-      mergeField("worldConstants");
-      mergeField("worldEvolution");
-      mergeField("threads");
-      mergeField("characterAttributes");
+      });
       ch.memoryCommittedAt = new Date().toISOString();
     }
     touchStory();
@@ -215,17 +282,20 @@ export async function prepareChapterMemory() {
     if (error.name !== "AbortError") toast(el.toast, "前文整理失败：" + error.message);
     return false;
   } finally {
+    stopCarousel();
     state.abortController = null;
     setBusy(false);
   }
 }
+
+/* ---- setBusy ---- */
 
 function setBusy(busy, text) {
   state.generating = busy;
   el.composerInput.disabled = busy;
   el.sendBtn.classList.toggle("hidden", busy);
   el.stopBtn.classList.toggle("hidden", !busy);
-  el.statusText.textContent = text || (busy ? "\u6b63\u5728\u7eed\u5199\u2026" : "\u51c6\u5907\u5c31\u7eea");
+  el.statusText.textContent = text || (busy ? "\u6b63\u5728\u7eed\u5192\u2026" : "\u51c6\u5907\u5c31\u7eea");
   el.topLoader.classList.toggle("active", busy);
   el.topLoader.setAttribute("aria-hidden", busy ? "false" : "true");
 }
