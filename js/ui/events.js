@@ -20,6 +20,35 @@ function isReaderNearBottom() {
 var userScrolledAway = false;
 var userIsTouching = false;
 var _programmaticScroll = false;
+// 以人眼阅读速度（~120px/秒）平滑滚动到底部
+// 每帧下滚约 2px（60fps），用户手动上滑则自动中断
+// 每帧重新计算 scrollHeight，内容持续生成时动画自动延展
+var _smoothRaf = null;
+var _smoothLastTop = 0;
+function smoothScrollToBottom() {
+  if (_smoothRaf) return; // 已有动画在跑，下一帧会自动重新计算目标
+  _smoothLastTop = el.readerViewport.scrollTop;
+  function frame() {
+    var rv = el.readerViewport;
+    var current = rv.scrollTop;
+    var maxScroll = rv.scrollHeight - rv.clientHeight;
+    // 检测用户手动上滑中断
+    if (current < _smoothLastTop - 2) {
+      _smoothRaf = null;
+      userScrolledAway = true;
+      return;
+    }
+    _smoothLastTop = current;
+    if (current >= maxScroll) {
+      _smoothRaf = null;
+      return;
+    }
+    // 每帧下滚 2px ≈ 120px/s
+    rv.scrollTop = Math.min(current + 2, maxScroll);
+    _smoothRaf = requestAnimationFrame(frame);
+  }
+  _smoothRaf = requestAnimationFrame(frame);
+}
 
 async function annotateSpeechTrack(story, content) {
   var numbered = buildSpeechAnnotationInput(content);
@@ -244,11 +273,7 @@ async function generateNarrative(instruction, source, metadata) {
         if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
       }
 		      if (!userScrolledAway && !userIsTouching) {
-		        var rv = el.readerViewport;
-		        _programmaticScroll = true;
-		        rv.style.scrollBehavior = 'auto';
-		        rv.scrollTop = rv.scrollHeight;
-		        rv.style.removeProperty('scroll-behavior');
+		        smoothScrollToBottom();
 		      }
     }, { maxTokens: getLengthMaxTokens(story.length) });
     segment.truncated = Boolean(
@@ -945,10 +970,7 @@ export function bindEvents() {
   });
   el.sendBtn.addEventListener("click", submitComposer);
   el.stopBtn.addEventListener("click", stopGeneration);
-  el.composerInput.addEventListener("keydown", function (event) {
-    if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); submitComposer(); }
-  });
-  el.composerInput.addEventListener("input", syncComposerHeight);
+	  el.composerInput.addEventListener("input", syncComposerHeight);
   document.getElementById("quickContinueBtn").addEventListener("click", function () {
     generateNarrative("自然续写并推进当前场景。", "continue");
   });
