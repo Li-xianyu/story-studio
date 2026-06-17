@@ -926,14 +926,13 @@ export function bindEvents() {
         clearTimeout(singleTapTimer);
         playParagraphFromNode(block);
         lastMobileTap = null;
-      } else {
-        clearTimeout(singleTapTimer);
-        lastMobileTap = { block: block, time: now, x: event.clientX, y: event.clientY, segment: segmentNode };
-        singleTapTimer = setTimeout(function () {
-          if (lastMobileTap) toggleSegmentActions(lastMobileTap.segment);
-          lastMobileTap = null;
-        }, 360);
-      }
+	      } else {
+	        clearTimeout(singleTapTimer);
+	        lastMobileTap = { block: block, time: now, x: event.clientX, y: event.clientY, segment: segmentNode };
+	        singleTapTimer = setTimeout(function () {
+	          lastMobileTap = null;
+	        }, 400);
+	      }
     }
     longPressStart = null;
     longPressTriggered = false;
