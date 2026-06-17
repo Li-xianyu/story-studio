@@ -20,20 +20,21 @@ function isReaderNearBottom() {
 var userScrolledAway = false;
 var userIsTouching = false;
 var _programmaticScroll = false;
-// 以人眼阅读速度（~120px/秒）平滑滚动到底部
-// 每帧下滚约 2px（60fps），用户手动上滑则自动中断
+// 平滑滚动到底部（慢滚底）
+// 移动端每行字少，速度翻倍（4px/帧 ≈ 240px/s）；桌面端 2px/帧 ≈ 120px/s
 // 每帧重新计算 scrollHeight，内容持续生成时动画自动延展
 var _smoothRaf = null;
 var _smoothLastTop = 0;
 function smoothScrollToBottom() {
-  if (_smoothRaf) return; // 已有动画在跑，下一帧会自动重新计算目标
+  if (_smoothRaf) return;
+  var pxPerFrame = window.matchMedia("(max-width: 760px)").matches ? 4 : 2;
   _smoothLastTop = el.readerViewport.scrollTop;
   function frame() {
     var rv = el.readerViewport;
     var current = rv.scrollTop;
     var maxScroll = rv.scrollHeight - rv.clientHeight;
     // 检测用户手动上滑中断
-    if (current < _smoothLastTop - 2) {
+    if (current < _smoothLastTop - pxPerFrame) {
       _smoothRaf = null;
       userScrolledAway = true;
       return;
@@ -43,8 +44,7 @@ function smoothScrollToBottom() {
       _smoothRaf = null;
       return;
     }
-    // 每帧下滚 2px ≈ 120px/s
-    rv.scrollTop = Math.min(current + 2, maxScroll);
+    rv.scrollTop = Math.min(current + pxPerFrame, maxScroll);
     _smoothRaf = requestAnimationFrame(frame);
   }
   _smoothRaf = requestAnimationFrame(frame);
@@ -819,20 +819,22 @@ export function bindEvents() {
         event.target.closest("[data-segment-id]"));
     }
   });
-	  el.readerViewport.addEventListener("scroll", function () {
-	    if (!_programmaticScroll && !el.readerViewport.dataset.programmaticScroll) {
-	      userScrolledAway = !isReaderNearBottom();
-	    }
-	    _programmaticScroll = false;
-	    delete el.readerViewport.dataset.programmaticScroll;
+		  el.readerViewport.addEventListener("scroll", function () {
+		    if (!_smoothRaf && !_programmaticScroll && !el.readerViewport.dataset.programmaticScroll) {
+		      userScrolledAway = !isReaderNearBottom();
+		    }
+		    _programmaticScroll = false;
+		    delete el.readerViewport.dataset.programmaticScroll;
 	    syncScrollToBottomBtn();
 	    var activeSegment = el.storyContent.querySelector(".segment:hover, .segment.actions-open");
 	    if (activeSegment) syncSegmentActionPlacement(activeSegment);
 	  }, { passive: true });
-  el.readerViewport.addEventListener("pointerdown", function (event) {
-    if (event.pointerType === "mouse") return;
-    userIsTouching = true;
-  });
+	  el.readerViewport.addEventListener("pointerdown", function (event) {
+	    if (event.pointerType === "mouse") return;
+	    userIsTouching = true;
+	    // 触摸时立即停掉慢滚底动画，让用户自由滑动
+	    if (_smoothRaf) { cancelAnimationFrame(_smoothRaf); _smoothRaf = null; }
+	  });
   el.readerViewport.addEventListener("pointerup", function () {
     userIsTouching = false;
   });
