@@ -790,7 +790,23 @@ export function bindEvents() {
       if (action === "edit") openSegmentEditor(segmentId);
       if (action === "rewrite") requestSegmentRewrite(segmentId);
       if (action === "insert") insertAfterSegment(segmentId);
-      if (action === "continue") generateNarrative("紧接当前正文自然续写并推进场景。", "continue");
+	      if (action === "continue") {
+	        var curCh = getChapter();
+	        if (curCh) {
+	          var segIdx = curCh.segments.findIndex(function (s) { return s.id === segmentId; });
+	          if (segIdx >= 0) {
+	            var before = curCh.segments.slice(Math.max(0, segIdx - 8), segIdx + 1).map(function (s) {
+	              return s.content;
+	            }).join("\n\n").slice(-10000);
+	            generateNarrative("紧接当前章节正文自然续写并推进场景。", "continue", {
+	              insertIndex: segIdx + 1,
+	              contextPrompt: "当前章节：「" + curCh.title + "」。续写位置是本章末尾，后续暂无正文。请严格承接本章已有正文续写，不得跳到后续章节尚未发生的情节。\n\n续写位置之前的正文（最近部分）：\n\n" + before,
+	            });
+	            return;
+	          }
+	        }
+	        generateNarrative("紧接当前正文自然续写并推进场景。", "continue");
+	      }
       if (action === "delete") {
         requestInlineConfirm(actionButton, function () { deleteSegment(segmentId); });
       }
