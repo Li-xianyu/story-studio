@@ -19,6 +19,7 @@ function isReaderNearBottom() {
 }
 var userScrolledAway = false;
 var userIsTouching = false;
+var _programmaticScroll = false;
 
 async function annotateSpeechTrack(story, content) {
   var numbered = buildSpeechAnnotationInput(content);
@@ -242,12 +243,13 @@ async function generateNarrative(instruction, source, metadata) {
         streamingNode = document.querySelector('[data-segment-id="' + segment.id + '"]');
         if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
       }
-	      if (!userScrolledAway && !userIsTouching) {
-	        var rv = el.readerViewport;
-	        rv.style.scrollBehavior = 'auto';
-	        rv.scrollTop = rv.scrollHeight;
-	        rv.style.removeProperty('scroll-behavior');
-	      }
+		      if (!userScrolledAway && !userIsTouching) {
+		        var rv = el.readerViewport;
+		        _programmaticScroll = true;
+		        rv.style.scrollBehavior = 'auto';
+		        rv.scrollTop = rv.scrollHeight;
+		        rv.style.removeProperty('scroll-behavior');
+		      }
     }, { maxTokens: getLengthMaxTokens(story.length) });
     segment.truncated = Boolean(
       segment.content.trim() &&
@@ -776,12 +778,16 @@ export function bindEvents() {
         event.target.closest("[data-segment-id]"));
     }
   });
-  el.readerViewport.addEventListener("scroll", function () {
-    userScrolledAway = !isReaderNearBottom();
-    syncScrollToBottomBtn();
-    var activeSegment = el.storyContent.querySelector(".segment:hover, .segment.actions-open");
-    if (activeSegment) syncSegmentActionPlacement(activeSegment);
-  }, { passive: true });
+	  el.readerViewport.addEventListener("scroll", function () {
+	    if (!_programmaticScroll && !el.readerViewport.dataset.programmaticScroll) {
+	      userScrolledAway = !isReaderNearBottom();
+	    }
+	    _programmaticScroll = false;
+	    delete el.readerViewport.dataset.programmaticScroll;
+	    syncScrollToBottomBtn();
+	    var activeSegment = el.storyContent.querySelector(".segment:hover, .segment.actions-open");
+	    if (activeSegment) syncSegmentActionPlacement(activeSegment);
+	  }, { passive: true });
   el.readerViewport.addEventListener("pointerdown", function (event) {
     if (event.pointerType === "mouse") return;
     userIsTouching = true;
@@ -796,11 +802,15 @@ export function bindEvents() {
     var show = userScrolledAway && state.generating;
     el.scrollToBottomBtn.classList.toggle("hidden", !show);
   }
-  el.scrollToBottomBtn.addEventListener("click", function () {
-    userScrolledAway = false;
-    el.readerViewport.scrollTop = el.readerViewport.scrollHeight;
-    el.scrollToBottomBtn.classList.add("hidden");
-  });
+	  el.scrollToBottomBtn.addEventListener("click", function () {
+	    userScrolledAway = false;
+	    var rv = el.readerViewport;
+	    _programmaticScroll = true;
+	    rv.style.scrollBehavior = 'auto';
+	    rv.scrollTop = rv.scrollHeight;
+	    rv.style.removeProperty('scroll-behavior');
+	    el.scrollToBottomBtn.classList.add("hidden");
+	  });
   var longPressTimer = 0;
   var longPressStart = null;
   var longPressTriggered = false;
