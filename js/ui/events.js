@@ -1047,26 +1047,115 @@ export function bindEvents() {
     generateNarrative("根据开场设定写出小说第一幕。直接进入场景，以有吸引力但不故弄玄虚的方式开篇。", "opening");
   });
 
-  document.querySelectorAll("[data-memory]").forEach(function (button) {
-    button.addEventListener("click", function (event) {
-      event.preventDefault();
-      state.memoryEditingKey = button.dataset.memory;
-      var labels = { summary: "故事摘要", characters: "人物关系", world: "世界状态", threads: "未解伏笔" };
-      el.memoryDialogTitle.textContent = "编辑" + labels[state.memoryEditingKey];
-      el.memoryEditor.value = getStory().memory[state.memoryEditingKey] || "";
-      el.memoryDialog.showModal();
-    });
-  });
-  document.getElementById("memoryForm").addEventListener("submit", function (event) {
-    if (event.submitter && event.submitter.value === "cancel") return;
-    event.preventDefault();
-    getStory().memory[state.memoryEditingKey] = el.memoryEditor.value.trim();
-    touchStory(); renderMemory(); el.memoryDialog.close();
-  });
+	  document.querySelectorAll("[data-memory]").forEach(function (button) {
+	    button.addEventListener("click", function (event) {
+	      event.preventDefault();
+	      state.memoryEditingKey = button.dataset.memory;
+	      var labels = {
+	        chapterSummaries: "故事摘要",
+	        characters: "人物关系",
+	        worldConstants: "世界常数",
+	        worldEvolution: "世界演化",
+	        threads: "未解伏笔",
+	        characterAttributes: "主角属性"
+	      };
+	      el.memoryDialogTitle.textContent = "编辑" + (labels[state.memoryEditingKey] || state.memoryEditingKey);
+	      var val = getStory().memory[state.memoryEditingKey];
+	      // chapterSummaries 是对象，拼接显示
+	      if (state.memoryEditingKey === "chapterSummaries" && typeof val === "object") {
+	        var lines = [];
+	        var story = getStory();
+	        var chMap = {};
+	        (story.chapters || []).forEach(function (ch) { chMap[ch.id] = ch.title; });
+	        Object.keys(val || {}).forEach(function (cid) {
+	          var t = chMap[cid] || cid;
+	          if (t === "__legacy__") t = "早期摘要";
+	          lines.push("【" + t + "】\n" + (val[cid] || ""));
+	        });
+	        el.memoryEditor.value = lines.join("\n\n") || "";
+	      } else {
+	        el.memoryEditor.value = val || "";
+	      }
+	      el.memoryDialog.showModal();
+	    });
+	  });
+	  document.getElementById("memoryForm").addEventListener("submit", function (event) {
+	    if (event.submitter && event.submitter.value === "cancel") return;
+	    event.preventDefault();
+	    var story = getStory();
+	    var key = state.memoryEditingKey;
+	    var raw = el.memoryEditor.value.trim();
+	    if (key === "chapterSummaries") {
+	      // 解析回 chapterSummaries 对象
+	      var parsed = {};
+	      var lines = raw.split("\n");
+	      var curId = null;
+	      var curLines = [];
+	      var chMap = {};
+	      (story.chapters || []).forEach(function (ch) { chMap[ch.title] = ch.id; });
+	      chMap["早期摘要"] = "__legacy__";
+	      lines.forEach(function (line) {
+	        var m = line.match(/^【(.+?)】/);
+	        if (m) {
+	          if (curId) { parsed[curId] = curLines.join("\n").trim(); }
+	          var title = m[1];
+	          curId = chMap[title] || title;
+	          curLines = [];
+	        } else {
+	          curLines.push(line);
+	        }
+	      });
+	      if (curId) { parsed[curId] = curLines.join("\n").trim(); }
+	      story.memory.chapterSummaries = parsed;
+	    } else {
+	      story.memory[key] = raw;
+	    }
+	    touchStory(); renderMemory(); el.memoryDialog.close();
+	  });
   document.getElementById("saveSegmentBtn").addEventListener("click", function () {
     saveSegmentEdit();
   });
-  document.getElementById("undoBtn").addEventListener("click", undoLastChange);
+	  document.getElementById("undoBtn").addEventListener("click", undoLastChange);
+
+	  // 重置记忆 — 原位二次确认
+	  var resetMemoryBtn = document.getElementById("resetMemoryBtn");
+	  if (resetMemoryBtn) {
+	    resetMemoryBtn.addEventListener("click", function () {
+	      if (resetMemoryBtn.dataset.confirming === "true") {
+	        clearTimeout(Number(resetMemoryBtn.dataset.confirmTimer) || 0);
+	        resetMemoryBtn.dataset.confirming = "false";
+	        resetMemoryBtn.classList.remove("confirming");
+	        resetMemoryBtn.innerHTML = '<i data-lucide="rotate-ccw"></i><span>重置记忆</span>';
+	        if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+	        // 执行清空
+	        var story = getStory();
+	        if (story && story.memory) {
+	          story.memory.chapterSummaries = {};
+	          story.memory.characters = "";
+	          story.memory.worldConstants = "";
+	          story.memory.worldEvolution = "";
+	          story.memory.threads = "";
+	          story.memory.characterAttributes = "";
+	        }
+	        touchStory();
+	        renderMemory();
+	        toast(el.toast, "记忆已清空，可重新整理");
+	        return;
+	      }
+	      // 第一次点击 → 进入确认状态
+	      resetMemoryBtn.dataset.originalHtml = resetMemoryBtn.innerHTML;
+	      resetMemoryBtn.dataset.confirming = "true";
+	      resetMemoryBtn.classList.add("confirming");
+	      resetMemoryBtn.innerHTML = '<i data-lucide="check"></i><span class="confirm-label">确认清空？</span>';
+	      if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+	      resetMemoryBtn.dataset.confirmTimer = String(setTimeout(function () {
+	        resetMemoryBtn.dataset.confirming = "false";
+	        resetMemoryBtn.classList.remove("confirming");
+	        resetMemoryBtn.innerHTML = resetMemoryBtn.dataset.originalHtml || '<i data-lucide="rotate-ccw"></i><span>重置记忆</span>';
+	        if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+	      }, 3000));
+	    });
+	  }
 
   document.querySelectorAll("[data-settings-tab]").forEach(function (button) {
     button.addEventListener("click", function () {

@@ -226,26 +226,41 @@
         <label class="switch-label"><input id="autoContinueToggle" type="checkbox"><span></span>自动续写</label>
       </div>
 
-      <details class="memory-card">
-        <summary>故事摘要</summary>
-        <div class="memory-toolbar"><button data-memory="summary">编辑</button></div>
-        <div id="summaryMemory" class="memory-content">尚未整理。</div>
-      </details>
-      <details class="memory-card">
-        <summary>人物关系</summary>
-        <div class="memory-toolbar"><button data-memory="characters">编辑</button></div>
-        <div id="charactersMemory" class="memory-content">尚未记录。</div>
-      </details>
-      <details class="memory-card">
-        <summary>世界状态</summary>
-        <div class="memory-toolbar"><button data-memory="world">编辑</button></div>
-        <div id="worldMemory" class="memory-content">尚未记录。</div>
-      </details>
-      <details class="memory-card">
-        <summary>未解伏笔</summary>
-        <div class="memory-toolbar"><button data-memory="threads">编辑</button></div>
-        <div id="threadsMemory" class="memory-content">尚未记录。</div>
-      </details>
+	      <details class="memory-card">
+	        <summary>故事摘要</summary>
+	        <div class="memory-toolbar"><button data-memory="chapterSummaries">编辑</button></div>
+	        <div id="summaryMemory" class="memory-content">尚未整理。</div>
+	      </details>
+	      <details class="memory-card">
+	        <summary>人物关系</summary>
+	        <div class="memory-toolbar"><button data-memory="characters">编辑</button></div>
+	        <div id="charactersMemory" class="memory-content">尚未记录。</div>
+	      </details>
+	      <details class="memory-card">
+	        <summary>世界常数</summary>
+	        <div class="memory-toolbar"><button data-memory="worldConstants">编辑</button></div>
+	        <div id="worldConstantsMemory" class="memory-content">尚未记录。</div>
+	      </details>
+	      <details class="memory-card">
+	        <summary>世界演化</summary>
+	        <div class="memory-toolbar"><button data-memory="worldEvolution">编辑</button></div>
+	        <div id="worldEvolutionMemory" class="memory-content">尚未记录。</div>
+	      </details>
+	      <details class="memory-card">
+	        <summary>未解伏笔</summary>
+	        <div class="memory-toolbar"><button data-memory="threads">编辑</button></div>
+	        <div id="threadsMemory" class="memory-content">尚未记录。</div>
+	      </details>
+	      <details class="memory-card">
+	        <summary>主角属性</summary>
+	        <div class="memory-toolbar"><button data-memory="characterAttributes">编辑</button></div>
+	        <div id="characterAttributesMemory" class="memory-content">尚未记录。</div>
+	      </details>
+	      <div class="memory-toolbar" style="margin-top:12px">
+	        <button id="resetMemoryBtn" class="segment-action danger" style="display:inline-flex;gap:4px;align-items:center;padding:6px 12px;position:static;opacity:1;visibility:visible;transform:none;border-radius:var(--radius-pill);font-size:13px">
+	          <i data-lucide="rotate-ccw"></i><span>重置记忆</span>
+	        </button>
+	      </div>
 
       <div class="control-card">
         <div class="section-head"><span class="section-label">分支快照</span></div>

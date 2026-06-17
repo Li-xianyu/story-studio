@@ -132,9 +132,23 @@ export function renderControls() {
 export function renderMemory() {
   var story = getStory();
   if (!story) return;
-  ["summary", "characters", "world", "threads"].forEach(function (key) {
+  // 故事摘要：按章节拼接
+  var summaryText = "";
+  var chapterMap = {};
+  (story.chapters || []).forEach(function (ch) { chapterMap[ch.id] = ch.title; });
+  var keys = Object.keys(story.memory.chapterSummaries || {});
+  keys.forEach(function (cid, i) {
+    var title = chapterMap[cid] || cid;
+    if (title === "__legacy__") title = "早期摘要";
+    if (i > 0) summaryText += "\n\n";
+    summaryText += "【" + title + "】\n" + (story.memory.chapterSummaries[cid] || "");
+  });
+  el.summaryMemory.textContent = summaryText || "尚未整理。";
+  // 其余单字段
+  var plainFields = ["characters", "worldConstants", "worldEvolution", "threads", "characterAttributes"];
+  plainFields.forEach(function (key) {
     var target = document.getElementById(key + "Memory");
-    target.textContent = story.memory[key] || "\u5c1a\u672a\u8bb0\u5f55\u3002";
+    if (target) target.textContent = story.memory[key] || "尚未记录。";
   });
 }
 

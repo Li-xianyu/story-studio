@@ -89,7 +89,7 @@ export function createStoryData(title, premise, playerRole, genre, pov) {
     updatedAt: nowIso(),
     started: false,
     chapters: [{ id: chapterId, title: "第一章", segments: [], createdAt: nowIso() }],
-    memory: { summary: "", characters: "", world: "", threads: "", lore: "" },
+    memory: { chapterSummaries: {}, characters: "", worldConstants: "", worldEvolution: "", threads: "", characterAttributes: "", lore: "" },
     branches: [],
   };
 }
@@ -148,20 +148,42 @@ export function loadState() {
     state.activeStoryId = saved.activeStoryId || "";
     state.activeChapterId = saved.activeChapterId || "";
   }
-  var povMigrated = false;
-  state.stories.forEach(function (story) {
-    var normalized = normalizePov(story.pov);
-    if (story.pov !== normalized) {
-      story.pov = normalized;
-      povMigrated = true;
-    }
-  });
+	  var povMigrated = false;
+	  var memMigrated = false;
+	  state.stories.forEach(function (story) {
+	    var normalized = normalizePov(story.pov);
+	    if (story.pov !== normalized) {
+	      story.pov = normalized;
+	      povMigrated = true;
+	    }
+	    // 旧 memory 结构迁移：{summary, characters, world, threads, lore} → 新分章结构
+	    if (story.memory && typeof story.memory.summary === "string" && story.memory.summary) {
+	      story.memory.chapterSummaries = story.memory.chapterSummaries || {};
+	      // 尝试按已有章节分配，否则全放占位键
+	      var placeholderId = "__legacy__";
+	      story.memory.chapterSummaries[placeholderId] = story.memory.summary;
+	      delete story.memory.summary;
+	      memMigrated = true;
+	    }
+	    if (story.memory && typeof story.memory.world === "string") {
+	      if (!story.memory.worldConstants && !story.memory.worldEvolution) {
+	        story.memory.worldConstants = story.memory.world;
+	        story.memory.worldEvolution = "";
+	      }
+	      delete story.memory.world;
+	      memMigrated = true;
+	    }
+	    story.memory.chapterSummaries = story.memory.chapterSummaries || {};
+	    story.memory.worldConstants = story.memory.worldConstants || "";
+	    story.memory.worldEvolution = story.memory.worldEvolution || "";
+	    story.memory.characterAttributes = story.memory.characterAttributes || "";
+	  });
   var storyCountBeforeMigration = state.stories.length;
   state.stories = state.stories.filter(function (story) {
     return !(story.title === "我的第一部故事" && isPristineStory(story));
   });
   ensureActiveSelection();
-  if (state.stories.length !== storyCountBeforeMigration || povMigrated) saveState();
+	  if (state.stories.length !== storyCountBeforeMigration || povMigrated || memMigrated) saveState();
 }
 
 export function saveState() {

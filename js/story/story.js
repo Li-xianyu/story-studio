@@ -127,10 +127,12 @@ export function rewriteFromSegment(segmentId) {
 
 export function clearDerivedMemory(story) {
   if (!story || !story.memory) return;
-  story.memory.summary = "";
+  story.memory.chapterSummaries = {};
   story.memory.characters = "";
-  story.memory.world = "";
+  story.memory.worldConstants = "";
+  story.memory.worldEvolution = "";
   story.memory.threads = "";
+  story.memory.characterAttributes = "";
 }
 
 export function continueFromSegment(segmentId) {
