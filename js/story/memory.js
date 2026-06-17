@@ -77,9 +77,13 @@ export async function summarizeMemory() {
     await streamCompletion([{ role: "system", content: "\u4f60\u662f\u5c0f\u8bf4\u8fde\u7eed\u6027\u7f16\u8f91\uff0c\u53ea\u8d1f\u8d23\u7ef4\u62a4\u51c6\u786e\u7684\u6545\u4e8b\u72b6\u6001\u3002" }, { role: "user", content: prompt }], function (delta) { result += delta; });
     var cleaned = result.replace(/^```json\s*|```$/g, "").trim();
     var memory = JSON.parse(cleaned);
-    ["summary", "characters", "world", "threads"].forEach(function (key) {
-      if (typeof memory[key] === "string") story.memory[key] = memory[key];
-    });
+	    ["summary", "characters", "world", "threads"].forEach(function (key) {
+	      if (typeof memory[key] === "string") {
+	        var oldVal = story.memory[key] || "";
+	        var newVal = memory[key];
+	        story.memory[key] = [oldVal, "【后续整理补充】\n" + newVal].filter(Boolean).join("\n\n").slice(-30000);
+	      }
+	    });
     touchStory();
     renderMemory();
     toast(el.toast, "\u6545\u4e8b\u8bb0\u5fc6\u5df2\u66f4\u65b0");
@@ -142,9 +146,13 @@ export async function prepareChapterMemory() {
     });
     var cleaned = result.replace(/^```json\s*|```$/g, "").trim();
     var memory = JSON.parse(cleaned);
-    ["summary", "characters", "world", "threads"].forEach(function (key) {
-      if (typeof memory[key] === "string" && memory[key].trim()) story.memory[key] = memory[key].trim();
-    });
+	    ["summary", "characters", "world", "threads"].forEach(function (key) {
+	      if (typeof memory[key] === "string" && memory[key].trim()) {
+	        var oldVal = story.memory[key] || "";
+	        var newVal = memory[key].trim();
+	        story.memory[key] = [oldVal, "【后续整理补充】\n" + newVal].filter(Boolean).join("\n\n").slice(-30000);
+	      }
+	    });
     var committedAt = new Date().toISOString();
     selectedChapters.forEach(function (chapter) { chapter.memoryCommittedAt = committedAt; });
     touchStory();
