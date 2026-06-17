@@ -143,7 +143,8 @@ export function renderMemory() {
     if (i > 0) summaryText += "\n\n";
     summaryText += "【" + title + "】\n" + (story.memory.chapterSummaries[cid] || "");
   });
-  el.summaryMemory.textContent = summaryText || "尚未整理。";
+	  var elSummary = document.getElementById("summaryMemory");
+	  if (elSummary) elSummary.textContent = summaryText || "尚未整理。";
   // 其余单字段
   var plainFields = ["characters", "worldConstants", "worldEvolution", "threads", "characterAttributes"];
   plainFields.forEach(function (key) {

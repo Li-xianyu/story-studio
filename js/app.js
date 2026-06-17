@@ -71,7 +71,6 @@ function syncComposerWidth() {
   var cs = getComputedStyle(viewport);
   var pl = parseFloat(cs.paddingLeft) || 0;
   var pr = parseFloat(cs.paddingRight) || 0;
-  // clientWidth 已排除滚动条 → 这才是 story-content 实际可用的内容宽度
   var contentWidth = viewport.clientWidth - pl - pr;
   var contentLeft = vr.left + pl - sr.left;
   composer.style.left = contentLeft + "px";
@@ -198,6 +197,7 @@ function init() {
   });
   bindLiquidGlass();
   window.addEventListener("resize", syncComposerHeight);
+  window.addEventListener("resize", function () { requestAnimationFrame(syncComposerWidth); });
   window.addEventListener("resize", syncComposerWidth);
   if (window.ResizeObserver) {
     var composerObserver = new ResizeObserver(syncComposerHeight);

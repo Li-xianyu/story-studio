@@ -471,6 +471,7 @@ function setLibraryOpen(open) {
     saveDesktopPanelState();
   }
   document.getElementById("libraryToggle").setAttribute("aria-expanded", open ? "true" : "false");
+  requestAnimationFrame(refreshComposerWidth);
 }
 
 function setControlsOpen(open) {
@@ -483,6 +484,24 @@ function setControlsOpen(open) {
   el.controlsPanel.setAttribute("aria-hidden", open ? "false" : "true");
   if (!open && el.controlsPanel.contains(document.activeElement)) document.activeElement.blur();
   saveDesktopPanelState();
+  requestAnimationFrame(refreshComposerWidth);
+}
+
+// 与 app.js 的 syncComposerWidth 同步，用于面板切换时更新输入框宽度
+function refreshComposerWidth() {
+  var viewport = document.getElementById("readerViewport");
+  var composer = document.querySelector(".composer");
+  var shell = document.querySelector(".reader-shell");
+  if (!viewport || !composer || !shell) return;
+  var vr = viewport.getBoundingClientRect();
+  var sr = shell.getBoundingClientRect();
+  var cs = getComputedStyle(viewport);
+  var pl = parseFloat(cs.paddingLeft) || 0;
+  var pr = parseFloat(cs.paddingRight) || 0;
+  composer.style.left = (vr.left + pl - sr.left) + "px";
+  composer.style.width = (viewport.clientWidth - pl - pr) + "px";
+  composer.style.transform = "none";
+  composer.style.maxWidth = "none";
 }
 
 function setAudioPanelOpen(open) {
@@ -1123,23 +1142,21 @@ export function bindEvents() {
 	    resetMemoryBtn.addEventListener("click", function () {
 	      if (resetMemoryBtn.dataset.confirming === "true") {
 	        clearTimeout(Number(resetMemoryBtn.dataset.confirmTimer) || 0);
+	        // 执行清空
 	        resetMemoryBtn.dataset.confirming = "false";
-	        resetMemoryBtn.classList.remove("confirming");
-	        resetMemoryBtn.innerHTML = '<i data-lucide="rotate-ccw"></i><span>重置记忆</span>';
+	        resetMemoryBtn.innerHTML = '<i data-lucide="rotate-ccw" style="width:14px;height:14px"></i><span>重置记忆</span>';
 	        if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
-		        // 执行清空（含旧版遗留字段）
-		        var story = getStory();
-		        if (story && story.memory) {
-		          story.memory.chapterSummaries = {};
-		          story.memory.characters = "";
-		          story.memory.worldConstants = "";
-		          story.memory.worldEvolution = "";
-		          story.memory.threads = "";
-		          story.memory.characterAttributes = "";
-		          // 旧版遗留字段一并清理
-		          delete story.memory.summary;
-		          delete story.memory.world;
-		        }
+	        var story = getStory();
+	        if (story && story.memory) {
+	          story.memory.chapterSummaries = {};
+	          story.memory.characters = "";
+	          story.memory.worldConstants = "";
+	          story.memory.worldEvolution = "";
+	          story.memory.threads = "";
+	          story.memory.characterAttributes = "";
+	          delete story.memory.summary;
+	          delete story.memory.world;
+	        }
 	        touchStory();
 	        renderMemory();
 	        toast(el.toast, "记忆已清空，可重新整理");
@@ -1149,12 +1166,12 @@ export function bindEvents() {
 	      resetMemoryBtn.dataset.originalHtml = resetMemoryBtn.innerHTML;
 	      resetMemoryBtn.dataset.confirming = "true";
 	      resetMemoryBtn.classList.add("confirming");
-	      resetMemoryBtn.innerHTML = '<i data-lucide="check"></i><span class="confirm-label">确认清空？</span>';
+	      resetMemoryBtn.innerHTML = '<i data-lucide="check" style="width:14px;height:14px"></i><span>确认清空？</span>';
 	      if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
 	      resetMemoryBtn.dataset.confirmTimer = String(setTimeout(function () {
 	        resetMemoryBtn.dataset.confirming = "false";
 	        resetMemoryBtn.classList.remove("confirming");
-	        resetMemoryBtn.innerHTML = resetMemoryBtn.dataset.originalHtml || '<i data-lucide="rotate-ccw"></i><span>重置记忆</span>';
+	        resetMemoryBtn.innerHTML = resetMemoryBtn.dataset.originalHtml || '<i data-lucide="rotate-ccw" style="width:14px;height:14px"></i><span>重置记忆</span>';
 	        if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
 	      }, 3000));
 	    });

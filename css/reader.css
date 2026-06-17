@@ -91,7 +91,13 @@
     padding-bottom .35s var(--ease-fluid),
     padding-left    .35s var(--ease-fluid),
     padding-right   .35s var(--ease-fluid);
- }
+}
+body:not(.library-collapsed) .reader-viewport {
+  padding-left: max(24px, calc((100% - var(--reader-width)) / 2), calc(300px + 20px));
+}
+body:has(#controlsPanel.open) .reader-viewport {
+  padding-right: max(24px, calc((100% - var(--reader-width)) / 2), calc(300px + 20px));
+}
 body.audio-panel-open .reader-viewport {
   --segment-action-safe-space: 44px;
   --reader-bottom-space: calc(var(--composer-height, 204px) + 94px + var(--segment-action-safe-space));
@@ -231,6 +237,13 @@ body.audio-panel-open .reader-viewport {
   box-shadow: 0 2px 8px rgba(255,69,58,0.3);
 }
 .segment-action.confirming:hover {
+  color: #fff; background: var(--red); filter: brightness(1.1);
+}
+.quiet-btn.danger.confirming {
+  color: #fff; background: var(--red);
+  box-shadow: 0 2px 8px rgba(255,69,58,0.3);
+}
+.quiet-btn.danger.confirming:hover {
   color: #fff; background: var(--red); filter: brightness(1.1);
 }
 
