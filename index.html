@@ -256,11 +256,12 @@
 	        <div class="memory-toolbar"><button data-memory="characterAttributes">编辑</button></div>
 	        <div id="characterAttributesMemory" class="memory-content">尚未记录。</div>
 	      </details>
-	      <div class="memory-toolbar" style="margin-top:12px">
-	        <button id="resetMemoryBtn" class="quiet-btn danger" style="display:inline-flex;gap:6px;align-items:center;padding:6px 14px;font-size:13px">
-	          <i data-lucide="rotate-ccw" style="width:14px;height:14px"></i><span>重置记忆</span>
-	        </button>
-	      </div>
+		      <div class="memory-toolbar" style="margin-top:12px">
+		        <button id="resetMemoryBtn" class="quiet-btn danger" style="display:inline-flex;gap:6px;align-items:center;padding:6px 14px;font-size:13px">
+		          <span class="btn-default"><i data-lucide="rotate-ccw" style="width:14px;height:14px"></i><span>重置记忆</span></span>
+		          <span class="btn-confirm" hidden><i data-lucide="check" style="width:14px;height:14px"></i><span>确认清空？</span></span>
+		        </button>
+		      </div>
 
       <div class="control-card">
         <div class="section-head"><span class="section-label">分支快照</span></div>

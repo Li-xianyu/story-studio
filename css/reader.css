@@ -240,6 +240,16 @@ body.audio-panel-open .reader-viewport {
 .quiet-btn.danger.confirming:hover {
   color: #fff; background: var(--red); filter: brightness(1.1);
 }
+.quiet-btn.danger .btn-default,
+.quiet-btn.danger .btn-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.quiet-btn.danger .btn-default[hidden],
+.quiet-btn.danger .btn-confirm[hidden] {
+  display: none;
+}
 
 .story-content .segment.streaming::after {
   content: ""; display: inline-block; width: 5px; height: 1em;

@@ -704,7 +704,6 @@ export function bindEvents() {
     }
   });
   document.addEventListener("click", function (event) {
-    if (!event.target.isConnected) return;
     if (!event.target.closest("[data-confirming='true']")) {
       resetInlineConfirm();
     }
@@ -1137,46 +1136,50 @@ export function bindEvents() {
   });
 	  document.getElementById("undoBtn").addEventListener("click", undoLastChange);
 
-	  // 重置记忆 — 原位二次确认
-	  var resetMemoryBtn = document.getElementById("resetMemoryBtn");
-	  if (resetMemoryBtn) {
-	    resetMemoryBtn.addEventListener("click", function () {
-	      if (resetMemoryBtn.dataset.confirming === "true") {
-	        clearTimeout(Number(resetMemoryBtn.dataset.confirmTimer) || 0);
-	        // 执行清空
-	        resetMemoryBtn.dataset.confirming = "false";
-	        resetMemoryBtn.innerHTML = '<i data-lucide="rotate-ccw" style="width:14px;height:14px"></i><span>重置记忆</span>';
-	        if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
-	        var story = getStory();
-	        if (story && story.memory) {
-	          story.memory.chapterSummaries = {};
-	          story.memory.characters = "";
-	          story.memory.worldConstants = "";
-	          story.memory.worldEvolution = "";
-	          story.memory.threads = "";
-	          story.memory.characterAttributes = "";
-	          delete story.memory.summary;
-	          delete story.memory.world;
-	        }
-	        touchStory();
-	        renderMemory();
-	        toast(el.toast, "记忆已清空，可重新整理");
-	        return;
-	      }
-	      // 第一次点击 → 进入确认状态
-	      resetMemoryBtn.dataset.originalHtml = resetMemoryBtn.innerHTML;
-	      resetMemoryBtn.dataset.confirming = "true";
-	      resetMemoryBtn.classList.add("confirming");
-	      resetMemoryBtn.innerHTML = '<i data-lucide="check" style="width:14px;height:14px"></i><span>确认清空？</span>';
-	      if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
-	      resetMemoryBtn.dataset.confirmTimer = String(setTimeout(function () {
-	        resetMemoryBtn.dataset.confirming = "false";
-	        resetMemoryBtn.classList.remove("confirming");
-	        resetMemoryBtn.innerHTML = resetMemoryBtn.dataset.originalHtml || '<i data-lucide="rotate-ccw" style="width:14px;height:14px"></i><span>重置记忆</span>';
-	        if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
-	      }, 3000));
-	    });
-	  }
+		  // 重置记忆 — 原位二次确认
+		  var resetMemoryBtn = document.getElementById("resetMemoryBtn");
+		  if (resetMemoryBtn) {
+		    resetMemoryBtn.addEventListener("click", function () {
+		      if (resetMemoryBtn.dataset.confirming === "true") {
+		        clearTimeout(Number(resetMemoryBtn.dataset.confirmTimer) || 0);
+		        // 执行清空
+		        resetMemoryBtn.dataset.confirming = "false";
+		        resetMemoryBtn.classList.remove("confirming");
+		        resetMemoryBtn.querySelector(".btn-default").hidden = false;
+		        resetMemoryBtn.querySelector(".btn-confirm").hidden = true;
+		        if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+		        var story = getStory();
+		        if (story && story.memory) {
+		          story.memory.chapterSummaries = {};
+		          story.memory.characters = "";
+		          story.memory.worldConstants = "";
+		          story.memory.worldEvolution = "";
+		          story.memory.threads = "";
+		          story.memory.characterAttributes = "";
+		          delete story.memory.summary;
+		          delete story.memory.world;
+		        }
+		        touchStory();
+		        renderMemory();
+		        toast(el.toast, "记忆已清空，可重新整理");
+		        return;
+		      }
+		      // 第一次点击 → 进入确认状态
+		      resetMemoryBtn.dataset.originalHtml = resetMemoryBtn.innerHTML;
+		      resetMemoryBtn.dataset.confirming = "true";
+		      resetMemoryBtn.classList.add("confirming");
+		      resetMemoryBtn.querySelector(".btn-default").hidden = true;
+		      resetMemoryBtn.querySelector(".btn-confirm").hidden = false;
+		      if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+		      resetMemoryBtn.dataset.confirmTimer = String(setTimeout(function () {
+		        resetMemoryBtn.dataset.confirming = "false";
+		        resetMemoryBtn.classList.remove("confirming");
+		        resetMemoryBtn.querySelector(".btn-default").hidden = false;
+		        resetMemoryBtn.querySelector(".btn-confirm").hidden = true;
+		        if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+		      }, 3000));
+		    });
+		  }
 
   document.querySelectorAll("[data-settings-tab]").forEach(function (button) {
     button.addEventListener("click", function () {
