@@ -93,9 +93,14 @@ export function renderStory(options) {
   var words = chapter.segments.reduce(function (sum, segment) { return sum + String(segment.content || "").length; }, 0);
   var chapterIndex = story.chapters.findIndex(function (item) { return item.id === chapter.id; }) + 1;
   el.storyMeta.textContent = "\u7b2c " + chapterIndex + " \u7ae0 \u00b7 " + words + " \u5b57";
-  if (options && options.toBottom) {
-    requestAnimationFrame(function () { el.readerViewport.scrollTop = el.readerViewport.scrollHeight; });
-  }
+	  if (options && options.toBottom) {
+	    requestAnimationFrame(function () {
+	      var rv = el.readerViewport;
+	      rv.style.scrollBehavior = 'auto';
+	      rv.scrollTop = rv.scrollHeight;
+	      rv.style.removeProperty('scroll-behavior');
+	    });
+	  }
 }
 
 function syncThemeColor() {

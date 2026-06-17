@@ -15,7 +15,7 @@ import { streamCompletion } from "../core/api.js";
 import { parseInlineSpeechTrack, stripVoiceMarkers, buildSpeechAnnotationInput, parseSpeechAnnotation } from "../core/speech-track.js";
 
 function isReaderNearBottom() {
-  return el.readerViewport.scrollHeight - el.readerViewport.scrollTop - el.readerViewport.clientHeight < 40;
+  return el.readerViewport.scrollHeight - el.readerViewport.scrollTop - el.readerViewport.clientHeight < 20;
 }
 var userScrolledAway = false;
 var userIsTouching = false;
@@ -242,9 +242,12 @@ async function generateNarrative(instruction, source, metadata) {
         streamingNode = document.querySelector('[data-segment-id="' + segment.id + '"]');
         if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
       }
-      if (!userScrolledAway && !userIsTouching) {
-        el.readerViewport.scrollTop = el.readerViewport.scrollHeight;
-      }
+	      if (!userScrolledAway && !userIsTouching) {
+	        var rv = el.readerViewport;
+	        rv.style.scrollBehavior = 'auto';
+	        rv.scrollTop = rv.scrollHeight;
+	        rv.style.removeProperty('scroll-behavior');
+	      }
     }, { maxTokens: getLengthMaxTokens(story.length) });
     segment.truncated = Boolean(
       segment.content.trim() &&
