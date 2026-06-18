@@ -11,6 +11,7 @@ import { speakText, stopSpeech, toggleSpeech, playFromIndex, playChapterFromInde
 import { newChapter, renameChapter, deleteChapter, renameStory, deleteStory, saveBranch, restoreBranch, deleteSegment, rewriteFromSegment, closeMobilePanels } from "../story/story.js";
 import { summarizeMemory, prepareChapterMemory, recentNarrative, looksNarrativeIncomplete, getLengthMaxTokens, buildSystemPrompt } from "../story/memory.js";
 import { exportStory, importFile } from "../story/import-export.js";
+import { openRelationGraph, closeRelationGraph } from "./relation-graph.js";
 import { streamCompletion } from "../core/api.js";
 import { parseInlineSpeechTrack, stripVoiceMarkers, buildSpeechAnnotationInput, parseSpeechAnnotation } from "../core/speech-track.js";
 
@@ -1065,6 +1066,23 @@ export function bindEvents() {
     saveState(); renderAll(); el.setupDialog.close(); el.setupForm.reset();
     generateNarrative("根据开场设定写出小说第一幕。直接进入场景，以有吸引力但不故弄玄虚的方式开篇。", "opening");
   });
+
+	  // 人物关系图：点击「关系图」按钮弹出居中力导向图弹窗
+	  var openRelationGraphBtn = document.getElementById("openRelationGraphBtn");
+	  if (openRelationGraphBtn) {
+	    openRelationGraphBtn.addEventListener("click", function (event) {
+	      event.preventDefault();
+	      openRelationGraph(getStory());
+	    });
+	  }
+	  // 关系图弹窗关闭时销毁网络实例，避免残留
+	  var relationGraphDialog = document.getElementById("relationGraphDialog");
+	  if (relationGraphDialog) {
+	    relationGraphDialog.addEventListener("close", function () {
+	      closeRelationGraph();
+	    });
+	  }
+	  // 关系图弹窗：收起事件由弹窗内的关闭按钮处理
 
 	  document.querySelectorAll("[data-memory]").forEach(function (button) {
 	    button.addEventListener("click", function (event) {

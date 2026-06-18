@@ -296,6 +296,212 @@
   line-height: 1;
 }
 
+/* --- 人物关系图弹窗 --- */
+.relation-graph-modal {
+  width: min(94vw, 860px);
+  height: 90vh;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 24px 14px;
+  gap: 12px;
+  overflow: hidden;
+}
+.relation-graph-modal .modal-head {
+  flex: 0 0 auto;
+  padding: 0 2px;
+}
+.relation-graph-body {
+  position: relative;
+  z-index: 2;
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+}
+.relation-graph-container {
+  position: relative;
+  z-index: 2;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  border-radius: var(--radius-lg);
+  background: rgba(8, 8, 10, 0.55);
+  border: 1px solid var(--glass-border);
+  overflow: hidden;
+}
+.relation-graph-container canvas {
+  border-radius: var(--radius-lg);
+}
+.relation-graph-empty {
+  position: relative;
+  z-index: 2;
+  flex: 1 1 auto;
+  min-height: min(50vh, 360px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px 24px;
+  text-align: center;
+}
+.relation-graph-empty .rg-empty-icon {
+  width: 56px; height: 56px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg-thin);
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+.relation-graph-empty .rg-empty-icon i { width: 26px; height: 26px; }
+.relation-graph-empty .rg-empty-title {
+  margin: 0;
+  font-size: 15px; font-weight: 600;
+  color: var(--text-primary);
+}
+.relation-graph-empty .rg-empty-hint {
+  margin: 0;
+  font-size: 13px; line-height: 1.6;
+  color: var(--text-secondary);
+  max-width: 360px;
+}
+.relation-graph-empty .rg-raw-text {
+  margin: 12px 0 0;
+  padding: 14px 16px;
+  width: 100%; max-width: 520px;
+  max-height: 220px; overflow: auto;
+  text-align: left;
+  white-space: pre-wrap; word-break: break-word;
+  font-size: 12px; line-height: 1.7;
+  color: var(--text-secondary);
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--separator-light);
+  border-radius: var(--radius-sm);
+}
+.relation-graph-foot {
+  flex: 0 0 auto;
+  display: flex; justify-content: center;
+}
+.relation-graph-tip {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+}
+/* 浅色主题下容器底色提亮 */
+[data-theme="light"] .relation-graph-container {
+  background: rgba(242, 242, 247, 0.55);
+}
+
+/* 节点信息弹出小窗（浮在画布上） */
+.rg-node-popup {
+  position: absolute;
+  z-index: 100;
+  min-width: 180px;
+  max-width: 260px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--glass-border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-float);
+  padding: 12px 14px 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  animation: rg-popup-in .18s var(--ease-fluid);
+  pointer-events: auto;
+}
+@keyframes rg-popup-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+[data-theme="light"] .rg-node-popup {
+  background: var(--bg-elevated);
+  border-color: rgba(60,60,67,0.2);
+}
+.rg-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--separator-light);
+}
+.rg-popup-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+.rg-popup-close {
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .15s;
+  border: none;
+  padding: 0;
+  line-height: 1;
+}
+.rg-popup-close:hover {
+  background: rgba(255,255,255,.08);
+  color: var(--text-primary);
+}
+[data-theme="light"] .rg-popup-close:hover {
+  background: rgba(0,0,0,.06);
+}
+.rg-popup-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.rg-popup-rel-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  background: var(--glass-bg-thin);
+}
+.rg-popup-rel-label {
+  color: var(--accent-text);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.rg-popup-rel-dir {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.rg-popup-rel-target {
+  color: var(--text-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rg-popup-empty {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-style: italic;
+  margin-bottom: 6px;
+  padding: 4px 6px;
+}
+.rg-popup-desc {
+  margin: 4px 0 0;
+  padding: 6px 0 0;
+  border-top: 1px solid var(--separator-light);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 80px;
+  overflow-y: auto;
+}
+
 #segmentEditor {
   min-height: 120px;
   max-height: 60vh;

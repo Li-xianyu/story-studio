@@ -233,7 +233,10 @@
 	      </details>
 	      <details class="memory-card">
 	        <summary>人物关系</summary>
-	        <div class="memory-toolbar"><button data-memory="characters">编辑</button></div>
+	        <div class="memory-toolbar">
+	          <button id="openRelationGraphBtn" type="button" title="以关系图查看"><i data-lucide="share-2" style="width:13px;height:13px;vertical-align:-2px"></i> 关系图</button>
+	          <button data-memory="characters">编辑</button>
+	        </div>
 	        <div id="charactersMemory" class="memory-content">尚未记录。</div>
 	      </details>
 	      <details class="memory-card">
@@ -373,6 +376,15 @@
     </form>
   </dialog>
 
+  <dialog id="relationGraphDialog" class="modal relation-graph-modal">
+    <div class="modal-head"><strong>人物关系图</strong><button type="button" class="icon-btn" data-close-dialog="relationGraphDialog" title="关闭" aria-label="关闭"><i data-lucide="x"></i></button></div>
+    <div class="relation-graph-body">
+      <div id="relationGraphContainer" class="relation-graph-container"></div>
+    </div>
+    <div id="relationGraphEmpty" class="relation-graph-empty" hidden></div>
+    <div class="relation-graph-foot"><span class="relation-graph-tip">点击人物节点查看详情 · 拖拽节点 · 滚轮缩放</span></div>
+  </dialog>
+
   <dialog id="segmentEditDialog" class="modal">
     <form method="dialog" id="segmentEditForm">
       <div class="modal-head"><div><strong>编辑正文</strong><small>直接修改这一段，不会调用模型</small></div><button type="button" class="icon-btn" data-close-dialog="segmentEditDialog" title="关闭" aria-label="关闭"><i data-lucide="x"></i></button></div>
@@ -448,6 +460,7 @@
 
   <div id="toast" class="toast"></div>
   <script src="./vendor/lucide/0.468.0/lucide.min.js"></script>
+  <script src="./vendor/antv-g6/5.1.1/g6.min.js"></script>
   <script type="module" src="./js/app.js?v=20260613v"></script>
 </body>
 </html>

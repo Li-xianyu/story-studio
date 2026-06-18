@@ -5,6 +5,7 @@
 import { state, settings, el, getStory, getChapter, isPristineStory, applyReaderSettings } from "../core/state.js";
 import { escapeHtml } from "../core/utils.js";
 import { stripVoiceMarkers } from "../core/speech-track.js";
+import { parseRelationGraph } from "./relation-graph.js";
 
 export function renderAll() {
   renderStoryList();
@@ -145,8 +146,40 @@ export function renderMemory() {
   });
 	  var elSummary = document.getElementById("summaryMemory");
 	  if (elSummary) elSummary.textContent = summaryText || "尚未整理。";
+  // 人物关系：解析为易读格式
+  var charsEl = document.getElementById("charactersMemory");
+  if (charsEl) {
+    var raw = story.memory.characters || "";
+    if (raw.trim()) {
+      var parsed = parseRelationGraph(raw);
+      if (parsed && parsed.nodes.length) {
+        var nodeRelMap = {};
+        parsed.nodes.forEach(function (n) { nodeRelMap[n.id] = { name: n.label, rels: [] }; });
+        parsed.edges.forEach(function (e) {
+          var fromNode = nodeRelMap[e.from];
+          var toNode = nodeRelMap[e.to];
+          if (fromNode) fromNode.rels.push({ label: e.label, target: toNode ? toNode.name : "?" });
+          if (toNode) toNode.rels.push({ label: e.label, target: fromNode ? fromNode.name : "?" });
+        });
+        var lines = [];
+        parsed.nodes.forEach(function (n) {
+          var info = nodeRelMap[n.id];
+          if (!info) return;
+          var relStr = info.rels.length
+            ? info.rels.map(function (r) { return r.label + " → " + r.target; }).join("；")
+            : "独立角色";
+          lines.push(escapeHtml(info.name) + "：" + relStr);
+        });
+        charsEl.textContent = lines.join("\n");
+      } else {
+        charsEl.textContent = raw;
+      }
+    } else {
+      charsEl.textContent = "尚未记录。";
+    }
+  }
   // 其余单字段
-  var plainFields = ["characters", "worldConstants", "worldEvolution", "threads", "characterAttributes"];
+  var plainFields = ["worldConstants", "worldEvolution", "threads", "characterAttributes"];
   plainFields.forEach(function (key) {
     var target = document.getElementById(key + "Memory");
     if (target) target.textContent = story.memory[key] || "尚未记录。";

@@ -168,7 +168,7 @@ export async function summarizeMemory() {
       var prompt = [
         "请分析以下小说正文，为指定章节生成或更新记忆。返回严格 JSON，不使用 Markdown 代码块。",
         "当前是第 " + chapterIndex + " 章，标题：「" + ch.title + "」。",
-        '{"summary":"本章剧情摘要，必须以【第' + chapterIndex + '章】开头，不要自行编造章节编号","characters":"人物关系（全局，输出完整最新版，非增量）","worldConstants":"世界观、力量体系、不变规则（输出完整最新版，非增量）","worldEvolution":"随剧情演化的状态、地点、物品（输出完整最新版，非增量）","threads":"未解决的悬念与伏笔（输出完整最新版，非增量）","characterAttributes":"主角外貌、衣着、修为/武力等（输出完整最新版，非增量）"}',
+        '{"summary":"本章剧情摘要，必须以【第' + chapterIndex + '章】开头，不要自行编造章节编号","characters":"人物关系（全局，每对关系双向各输出一条，输出完整最新版）。格式：角色名——关系描述——关联角色名。每对关系必须输出两条，互相指向。例如赵云对张飞是师兄弟、张飞对赵云是被师兄弟，则输出两行：赵云——师兄弟——张飞\\n张飞——被师兄弟——赵云。若角色暂无关联，写：角色名——独立角色——（无）。主角列最前。","worldConstants":"世界观、力量体系、不变规则（输出完整最新版，非增量）","worldEvolution":"随剧情演化的状态、地点、物品（输出完整最新版，非增量）","threads":"未解决的悬念与伏笔（输出完整最新版，非增量）","characterAttributes":"主角外貌、衣着、修为/武力等（输出完整最新版，非增量）"}',
         "要求：人物关系、世界观、世界演化、伏笔、主角属性这五个字段，请基于已有记录和本章新内容输出完整的最新版本——保留已有记录中仍然准确的部分，删除已不再适用的内容，融入本章新增的信息。不要输出增量补充。",
         "已有记录：\n" + JSON.stringify({
           chapterSummary: oldSummary.slice(0, 3000),
@@ -186,7 +186,7 @@ export async function summarizeMemory() {
       }
       var result = "";
       await streamCompletion([
-        { role: "system", content: "你是小说连续性编辑，只维护准确的故事状态。" },
+        { role: "system", content: "你是小说连续性编辑，只维护准确的故事状态。人物关系请使用 角色名——关系——关联角色名 的格式，每行一条关系，不要输出自然语言描述。" },
         { role: "user", content: prompt }
       ], function (delta) { result += delta; });
       var cleaned = result.replace(/^```json\s*|```$/g, "").trim();
@@ -241,7 +241,7 @@ export async function prepareChapterMemory() {
       var prompt = [
         "即将进入新章节。请为以下章节生成独立记忆条目，返回严格 JSON，不使用 Markdown 代码块。",
         "当前归档的是第 " + chapterIndex + " 章，标题：「" + ch.title + "」。",
-        '{"summary":"本章剧情摘要，必须以【第' + chapterIndex + '章】开头，不要自行编造章节编号","characters":"人物关系（全局，输出完整最新版，非增量）","worldConstants":"世界观、力量体系、不变规则（输出完整最新版，非增量）","worldEvolution":"本章涉及的状态变化（输出完整最新版，非增量）","threads":"仍未解决的目标、冲突、悬念与伏笔（输出完整最新版，非增量）","characterAttributes":"主角属性更新（输出完整最新版，非增量）"}',
+        '{"summary":"本章剧情摘要，必须以【第' + chapterIndex + '章】开头，不要自行编造章节编号","characters":"人物关系（全局，每对关系双向各输出一条，输出完整最新版）。格式：角色名——关系描述——关联角色名。每对关系必须输出两条，互相指向。例如赵云对张飞是师兄弟、张飞对赵云是被师兄弟，则输出两行：赵云——师兄弟——张飞\\n张飞——被师兄弟——赵云。若角色暂无关联，写：角色名——独立角色——（无）。主角列最前。","worldConstants":"世界观、力量体系、不变规则（输出完整最新版，非增量）","worldEvolution":"本章涉及的状态变化（输出完整最新版，非增量）","threads":"仍未解决的目标、冲突、悬念与伏笔（输出完整最新版，非增量）","characterAttributes":"主角属性更新（输出完整最新版，非增量）"}',
         "要求：人物关系、世界观、世界演化、伏笔、主角属性这五个字段，请基于已有记录和本章内容输出完整的最新版本——保留已有记录中仍然准确的部分，删除已不再适用的内容，融入本章新增的信息。不要输出增量补充。",
         "已有记忆基础：\n" + JSON.stringify({
           characters: (story.memory.characters || "").slice(0, 3000),
@@ -253,7 +253,7 @@ export async function prepareChapterMemory() {
       ].join("\n\n");
       var result = "";
       await streamCompletion([
-        { role: "system", content: "你是长篇小说的连续性编辑，只维护准确、紧凑、可供后续创作使用的故事记忆。" },
+        { role: "system", content: "你是长篇小说的连续性编辑，只维护准确、紧凑、可供后续创作使用的故事记忆。人物关系请使用 角色名——关系——关联角色名 的格式，每行一条关系。" },
         { role: "user", content: prompt }
       ], function (delta) { result += delta; }, {
         maxTokens: 1400,
