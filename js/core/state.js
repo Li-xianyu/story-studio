@@ -48,7 +48,7 @@ var ids = [
   "topLoader", "libraryPanel", "controlsPanel", "mobileBackdrop", "storyList", "chapterList", "branchList",
   "storyTitle", "storyMeta", "storyContent", "emptyState", "readerViewport", "composerInput", "sendBtn", "stopBtn",
   "statusText", "setupDialog", "setupForm", "setupTitle", "setupPrompt", "setupRole", "setupGenre", "setupPov",
-  "settingsDialog", "settingsForm", "memoryDialog", "memoryDialogTitle", "memoryEditor", "toast",
+  "settingsDialog", "settingsForm", "memoryDialog", "memoryDialogTitle", "memoryEditor", "memoryAiInput", "memoryAiBtn", "toast",
   "povDisplay", "lengthSelect", "styleInput", "playerRoleInput", "premiseInput", "autoContinueToggle", "autoTtsToggle",
   "speechRate", "playbackTitle", "playbackProgress", "ttsPlayBtn", "playerBar", "audioPanelToggle", "apiHost", "apiKey", "apiModel",
   "temperature", "ttsProvider", "systemVoice", "systemPitch", "ttsHost", "ttsKey", "ttsModel",
@@ -59,7 +59,8 @@ var ids = [
   "deleteStoryDialog", "deleteStoryName", "confirmDeleteStoryBtn",
   "libraryThemeBtn",
   "readingSettingsBtn", "readingSettingsDialog",
-  "readerFontSize", "readerLineHeight", "readerIndentToggle", "scrollToBottomBtn"
+  "readerFontSize", "readerLineHeight", "readerIndentToggle", "scrollToBottomBtn",
+  "contextMenu"
 ];
 
 export function cacheElements() {

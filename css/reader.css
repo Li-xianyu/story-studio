@@ -83,10 +83,12 @@
   scroll-behavior: smooth;
   --segment-action-safe-space: 22px;
   --reader-bottom-space: calc(var(--composer-height, 204px) + 30px + var(--segment-action-safe-space));
+  /* 始终以全视口为基准居中，面板打开时只补足最小避让，不会位移 */
   padding:
     76px
-    max(24px, calc((100% - var(--reader-width)) / 2))
-    var(--reader-bottom-space);
+    max(calc(var(--g-right, 0px) + 24px), calc((100% - var(--reader-width)) / 2))
+    var(--reader-bottom-space)
+    max(calc(var(--g-left, 0px) + 24px), calc((100% - var(--reader-width)) / 2));
   transition:
     padding-bottom .35s var(--ease-fluid),
     padding-left    .35s var(--ease-fluid),
@@ -262,7 +264,8 @@ body.audio-panel-open .reader-viewport {
 /* === Scroll-to-bottom FAB === */
 .scroll-to-bottom-btn {
   position: sticky; bottom: 20px;
-  float: right; margin-right: 16px;
+  float: right;
+  margin-right: calc(16px + var(--g-right, 0px));
   display: grid; place-items: center;
   width: 40px; height: 40px;
   border-radius: 50%;
@@ -287,7 +290,7 @@ body.audio-panel-open .reader-viewport {
 
 /* === Empty State === */
 .empty-state {
-  width: min(100%, 680px); min-height: 100%; margin: auto;
+  width: min(calc(100% - var(--g-left, 0px) - var(--g-right, 0px)), 680px); min-height: 100%; margin: auto;
   display: grid; place-content: center; justify-items: start;
   transform: translateY(-2vh);
 }
@@ -343,9 +346,11 @@ body.audio-panel-open .reader-viewport {
 
 /* === Player Bar === */
 .player-bar {
-  position: absolute; z-index: 11; left: 50%;
+  position: absolute; z-index: 11;
+  left: calc(var(--g-left, 0px) + (100% - var(--g-left, 0px) - var(--g-right, 0px)) / 2);
   bottom: calc(var(--composer-height, 152px) + 28px);
-  width: min(calc(100% - 28px), 760px);
+  width: min(calc(100% - var(--g-left, 0px) - var(--g-right, 0px) - 28px), 760px);
+  max-width: calc(100vw - var(--g-left, 0px) - var(--g-right, 0px) - 28px);
   display: grid; grid-template-columns: auto minmax(100px, 1fr) auto auto auto;
   align-items: center; gap: 8px;
   padding: 8px 6px 8px 12px;
@@ -359,7 +364,7 @@ body.audio-panel-open .reader-viewport {
   border: 1px solid var(--glass-border);
   opacity: 0; visibility: hidden; pointer-events: none;
   transform: translate(-50%, 12px) scale(0.95);
-  transition: .3s var(--ease-fluid);
+  transition: left .35s var(--ease-fluid), width .35s var(--ease-fluid), opacity .3s var(--ease-fluid), transform .3s var(--ease-fluid), visibility .3s;
 }
 .player-bar::before {
   content: "";

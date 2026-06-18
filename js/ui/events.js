@@ -1149,6 +1149,95 @@ export function bindEvents() {
 	    }
 	    touchStory(); renderMemory(); el.memoryDialog.close();
 	  });
+	  // AI 修改记忆
+	  if (el.memoryAiBtn) {
+	    var doAiModify = async function () {
+	      var input = (el.memoryAiInput.value || "").trim();
+	      if (!input) { toast(el.toast, "请先输入修改要求"); return; }
+	      var key = state.memoryEditingKey;
+	      var story = getStory();
+	      var labelMap = { characters: "人物关系", worldConstants: "世界观", worldEvolution: "世界演化", threads: "未解伏笔", characterAttributes: "主角属性", chapterSummaries: "故事摘要" };
+	      var label = labelMap[key] || key;
+	      var current = el.memoryEditor.value.trim();
+	      setBusy(el, true, "AI 正在修改" + label + "…");
+	      el.memoryAiBtn.disabled = true;
+	      try {
+	        // 收集相关章节原文供 AI 参考
+	        var contextText = "";
+	        if (story && story.chapters) {
+	          var chapters = story.chapters.filter(function (ch) {
+	            return ch.segments.some(function (s) { return String(s.content || "").trim(); });
+	          });
+	          if (chapters.length) {
+	            var snippets = chapters.slice(-3).map(function (ch) {
+	              var txt = ch.segments.map(function (s) { return s.content; }).filter(Boolean).join("\n\n");
+	              return "【" + (ch.title || "章节") + "】\n" + txt.slice(-6000);
+	            });
+	            contextText = "原文参考：\n" + snippets.join("\n\n---\n\n");
+	          }
+	        }
+	        var prompt = "用户正在编辑「" + label + "」。\n"
+	          + contextText + "\n"
+	          + "当前内容：\n" + current + "\n\n"
+	          + "用户要求：" + input + "\n\n"
+	          + "请根据原文和用户要求，直接返回修改后的完整内容。不要添加解释，只输出修改后的文本。"
+	          + "必须忠实于原文信息，不要编造不存在的人物、名字或细节。如果原文中某角色没有名字只有描述（如'马尾女生''瘦高个'），请保持这些描述，不要自行起名。";
+	        var messages = [
+	          { role: "system", content: "你是写作助手，帮助用户修改故事记忆。只输出修改后的内容，不加解释。禁止编造原文中没有的人名和细节。" },
+	          { role: "user", content: prompt }
+	        ];
+	        var result = "";
+	        // 初始清空 textarea，准备显示流式输出
+	        el.memoryEditor.value = "";
+	        await streamCompletion(messages, function (delta) {
+	          result += delta;
+	          // 实时显示到 textarea
+	          el.memoryEditor.value = result;
+	          el.memoryEditor.scrollTop = el.memoryEditor.scrollHeight;
+	        }, { temperature: 0.4 });
+	        result = result.replace(/^```[\s\S]*?\n?|```$/g, "").trim();
+	        if (result) {
+	          el.memoryEditor.value = result;
+	          // 自动保存
+	          if (key === "chapterSummaries") {
+	            var parsed = {};
+	            var lines2 = result.split("\n");
+	            var curId = null;
+	            var curLines = [];
+	            var chMap = {};
+	            (story.chapters || []).forEach(function (ch) { chMap[ch.title] = ch.id; });
+	            chMap["早期摘要"] = "__legacy__";
+	            lines2.forEach(function (line) {
+	              var m = line.match(/^【(.+?)】/);
+	              if (m) {
+	                if (curId) { parsed[curId] = curLines.join("\n").trim(); }
+	                curId = chMap[m[1]] || m[1];
+	                curLines = [];
+	              } else { curLines.push(line); }
+	            });
+	            if (curId) { parsed[curId] = curLines.join("\n").trim(); }
+	            story.memory.chapterSummaries = parsed;
+	          } else {
+	            story.memory[key] = result;
+	          }
+	          touchStory(); renderMemory(); el.memoryDialog.close();
+	          toast(el.toast, label + "已修改并保存");
+	        } else {
+	          toast(el.toast, "AI 未返回有效内容");
+	        }
+	        el.memoryAiInput.value = "";
+	      } catch (err) {
+	        if (err.name !== "AbortError") toast(el.toast, "修改失败：" + (err.message || String(err)));
+	      } finally {
+	        setBusy(el, false);
+	        el.memoryAiBtn.disabled = false;
+	      }
+	    };
+	    el.memoryAiBtn.addEventListener("click", doAiModify);
+	    el.memoryAiInput.addEventListener("keydown", function (e) {
+	      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doAiModify(); }
+	    });
+	  }
   document.getElementById("saveSegmentBtn").addEventListener("click", function () {
     saveSegmentEdit();
   });
@@ -1254,4 +1343,97 @@ export function bindEvents() {
       el.controlsPanel.classList.add("open");
     }
   });
+
+  /* ---- 全页面右键菜单 ---- */
+  var menu = el.contextMenu;
+  var menuButtons = {
+    ctxContinue: function () { generateNarrative("自然续写并推进当前场景。", "continue"); },
+    ctxSummarize: summarizeMemory,
+    ctxRewriteLast: function () {
+      var chapter = getChapter();
+      if (!chapter || state.generating) return;
+      var lastNarrative = chapter.segments.slice().reverse().find(function (s) { return s.type === "narrative"; });
+      if (!lastNarrative) return toast(el.toast, "没有可重写的正文");
+      rewriteFromSegment(lastNarrative.id);
+      generateNarrative("根据上文自然重写后续正文。", "rewrite");
+    },
+    ctxSaveBranch: saveBranch,
+    ctxToggleLibrary: function () {
+      var mobile = window.matchMedia("(max-width: 760px)").matches;
+      var open = mobile
+        ? !el.libraryPanel.classList.contains("open")
+        : document.body.classList.contains("library-collapsed");
+      setLibraryOpen(open);
+    },
+    ctxToggleControls: function () { setControlsOpen(!el.controlsPanel.classList.contains("open")); },
+    ctxToggleFocus: function () { document.body.classList.toggle("focus-mode"); },
+    ctxReadSettings: function () {
+      el.readerFontSize.value = settings.readerFontSize;
+      el.readerLineHeight.value = settings.readerLineHeight;
+      el.readerIndentToggle.checked = Boolean(settings.readerIndent);
+      syncAll();
+      el.readingSettingsDialog.showModal();
+    },
+    ctxExport: exportStory,
+    ctxNewStory: function () { el.setupDialog.showModal(); },
+  };
+
+  function showContextMenu(x, y) {
+    hideContextMenu();
+    var dw = document.documentElement;
+    var w = dw.clientWidth;
+    var h = dw.clientHeight;
+    var menuW = Math.min(280, w - 20);
+    menu.style.maxWidth = menuW + "px";
+    // 先放一个临时位置触发 layout，算出真实高度
+    menu.style.left = "0px";
+    menu.style.top = "0px";
+    menu.style.pointerEvents = "none";
+    menu.classList.add("open");
+    var realH = menu.getBoundingClientRect().height;
+    menu.classList.remove("open");
+    menu.style.pointerEvents = "";
+    // 正式定位
+    var left = x + menuW > w - 8 ? w - menuW - 8 : x;
+    var top = y + realH > h - 8 ? y - realH - 4 : y;
+    if (top < 0) top = 4;
+    menu.style.left = left + "px";
+    menu.style.top = top + "px";
+    menu.style.setProperty("--ctx-origin", y + realH > h - 8 ? "bottom left" : "top left");
+    menu.classList.add("open");
+    if (window.lucide && typeof window.lucide.createIcons === "function") {
+      window.lucide.createIcons();
+    }
+  }
+
+  function hideContextMenu() {
+    menu.classList.remove("open");
+  }
+
+  // Desktop: custom menu on right-click, suppress browser default
+  document.addEventListener("contextmenu", function (event) {
+    if (window.matchMedia("(max-width: 760px)").matches) return; // let mobile keep long-press
+    // allow native on inputs/textarea
+    if (event.target.closest("input, textarea, [contenteditable]")) return;
+    event.preventDefault();
+    showContextMenu(event.clientX, event.clientY);
+  });
+
+  menu.addEventListener("click", function (event) {
+    var btn = event.target.closest("[id^='ctx']");
+    if (!btn) return;
+    hideContextMenu();
+    var fn = menuButtons[btn.id];
+    if (typeof fn === "function") fn();
+  });
+
+  document.addEventListener("click", function (event) {
+    if (!event.target.closest("#contextMenu")) hideContextMenu();
+  });
+
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") hideContextMenu();
+  });
+
+  el.readerViewport.addEventListener("scroll", function () { hideContextMenu(); }, { passive: true });
 }

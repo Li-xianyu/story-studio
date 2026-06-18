@@ -296,6 +296,25 @@
   line-height: 1;
 }
 
+/* 记忆编辑器 AI 修改行 */
+.memory-ai-row {
+  display: flex; gap: 8px; align-items: center;
+  margin-top: 6px;
+}
+.memory-ai-input {
+  flex: 1 1 auto;
+  padding: 8px 12px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--separator-light);
+  background: var(--glass-bg-thin);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color .2s;
+}
+.memory-ai-input:focus { border-color: var(--accent); }
+.memory-ai-input::placeholder { color: var(--text-tertiary); }
+
 /* --- 人物关系图弹窗 --- */
 .relation-graph-modal {
   width: min(94vw, 860px);
@@ -790,4 +809,118 @@ label:has(custom-select) > custom-select {
 .cs-dropdown-compact .cs-option {
   justify-content: center;
   gap: 6px;
+}
+
+/* === Custom Context Menu === */
+.context-menu {
+  position: fixed;
+  z-index: 2000;
+  min-width: 200px;
+  max-width: 280px;
+  padding: 6px;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(28,28,30,.68), rgba(12,12,14,.56)),
+    rgba(8,8,10,.42);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  box-shadow:
+    0 20px 52px rgba(0,0,0,.34),
+    0 5px 16px rgba(0,0,0,.18),
+    inset 0 1px 0 rgba(255,255,255,.10);
+  display: grid;
+  gap: 2px;
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(.94);
+  transform-origin: var(--ctx-origin, top left);
+  transition: opacity .15s ease, transform .18s var(--ease-fluid), visibility .15s;
+  pointer-events: none;
+}
+.context-menu::before {
+  content: "";
+  position: absolute; z-index: 2; inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: var(--glass-edge-shadow);
+}
+.context-menu.open {
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1);
+  pointer-events: auto;
+}
+.context-menu-item {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background .12s, transform .12s;
+}
+.context-menu-item svg {
+  width: 18px;
+  height: 18px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.context-menu-item span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.context-menu-item small {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 400;
+  flex-shrink: 0;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.context-menu-item:hover {
+  background: rgba(255,255,255,.08);
+}
+.context-menu-item:active {
+  transform: scale(.97);
+  background: rgba(255,255,255,.12);
+}
+.context-separator {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--separator-light);
+}
+
+[data-theme="light"] .context-menu {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.58), rgba(255,255,255,.38)),
+    rgba(242,242,247,.32);
+  border-color: rgba(255,255,255,.72);
+  box-shadow:
+    0 18px 46px rgba(15,23,42,.14),
+    inset 0 1px 0 rgba(255,255,255,.76);
+}
+[data-theme="light"] .context-menu-item:hover {
+  background: rgba(0,0,0,.05);
+}
+[data-theme="light"] .context-menu-item:active {
+  background: rgba(0,0,0,.10);
+}
+[data-theme="light"] .context-menu-item svg {
+  color: rgba(0,0,0,.45);
 }

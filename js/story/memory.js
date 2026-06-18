@@ -7,6 +7,16 @@ import { toast } from "../core/utils.js";
 import { streamCompletion } from "../core/api.js";
 import { renderMemory } from "../ui/renderer.js";
 
+/* ---- 常量 ---- */
+
+var GLOBAL_KEYS = ["characters", "worldConstants", "worldEvolution", "threads", "characterAttributes"];
+var FIELD_LABELS = {
+  characters: "人物关系", worldConstants: "世界常数", worldEvolution: "世界演化",
+  threads: "未解伏笔", characterAttributes: "主角属性"
+};
+
+/* ---- System Prompt ---- */
+
 export function buildSystemPrompt(story) {
   function buildSummaryBlock() {
     var m = story.memory;
@@ -29,38 +39,40 @@ export function buildSystemPrompt(story) {
   }
   var memoryBlock = buildSummaryBlock();
   return [
-    "\u4f60\u662f\u4e00\u4f4d\u6210\u719f\u7684\u4e2d\u6587\u957f\u7bc7\u5c0f\u8bf4\u4f5c\u8005\uff0c\u4e5f\u662f\u9690\u5f62\u7684\u4e92\u52a8\u53d9\u4e8b\u5f15\u64ce\u3002",
-    "\u53ea\u8f93\u51fa\u53ef\u4ee5\u76f4\u63a5\u8fdb\u5165\u5c0f\u8bf4\u6b63\u6587\u7684\u5185\u5bb9\uff0c\u4e0d\u89e3\u91ca\u521b\u4f5c\u601d\u8def\uff0c\u4e0d\u4f7f\u7528 Markdown \u6807\u9898\uff0c\u4e0d\u590d\u8ff0\u7528\u6237\u6307\u4ee4\u3002",
-    "\u5fc5\u987b\u627f\u63a5\u5df2\u6709\u6b63\u6587\uff0c\u4fdd\u6301\u4eba\u7269\u52a8\u673a\u3001\u7a7a\u95f4\u4f4d\u7f6e\u3001\u65f6\u95f4\u987a\u5e8f\u548c\u4fe1\u606f\u8fb9\u754c\u4e00\u81f4\u3002",
-    "\u7528\u6237\u4ee5\u89d2\u8272\u8eab\u4efd\u4ecb\u5165\u65f6\uff0c\u7528\u6237\u8f93\u5165\u4e2d\u7684\u201c\u6211\u201d\u53ea\u4ee3\u8868\u5176\u626e\u6f14\u7684\u89d2\u8272\uff0c\u4e0d\u4ee3\u8868\u6b63\u6587\u5fc5\u987b\u6539\u6210\u7b2c\u4e00\u4eba\u79f0\u3002\u5c06\u7528\u6237\u660e\u786e\u63d0\u4f9b\u7684\u8a00\u884c\u89c6\u4e3a\u5df2\u7ecf\u53d1\u751f\u7684\u5267\u60c5\u4e8b\u5b9e\uff0c\u518d\u4e25\u683c\u6309\u8bbe\u7f6e\u7684\u53d9\u4e8b\u89c6\u89d2\u5199\u5165\u6b63\u6587\uff1b\u4e0d\u5f97\u56e0\u4e3a\u7528\u6237\u4f7f\u7528\u201c\u6211\u201d\u800c\u6539\u53d8\u4eba\u79f0\u3002\u5bf9\u7528\u6237\u6240\u626e\u6f14\u7684\u89d2\u8272\u5b9e\u884c\u4e25\u683c\u7684\u73a9\u5bb6\u4ee3\u7406\u6743\u8fb9\u754c\uff1a\u53ea\u80fd\u5199\u7528\u6237\u672c\u6b21\u660e\u786e\u8f93\u5165\u7684\u52a8\u4f5c\u3001\u53f0\u8bcd\u548c\u610f\u56fe\uff0c\u4e0d\u5f97\u66ff\u8be5\u89d2\u8272\u65b0\u589e\u4efb\u4f55\u52a8\u4f5c\u3001\u53f0\u8bcd\u3001\u5fc3\u7406\u5224\u65ad\u3001\u627f\u8bfa\u3001\u51b3\u5b9a\u6216\u76ee\u6807\u3002\u4e0d\u5f97\u64c5\u81ea\u5f15\u5165\u65b0\u4eba\u7269\u3001\u65b0\u7ebf\u7d22\u3001\u7a81\u53d1\u4e8b\u4ef6\u6216\u65b0\u7684\u5267\u60c5\u5206\u652f\u3002\u8f93\u51fa\u5e94\u96c6\u4e2d\u4e8e\u7528\u6237\u884c\u4e3a\u7684\u5c0f\u8bf4\u5316\u5448\u73b0\u3001\u73b0\u573a\u73af\u5883\u4e0e\u6c1b\u56f4\u3001\u53ef\u89c2\u5bdf\u7684\u52a8\u4f5c\u795e\u6001\u3001\u5176\u4ed6\u4eba\u7269\u7684\u76f4\u63a5\u53cd\u5e94\u4e0e\u5fc5\u7136\u7684\u5373\u65f6\u540e\u679c\uff0c\u5e76\u5728\u9700\u8981\u73a9\u5bb6\u7ee7\u7eed\u9009\u62e9\u6216\u56de\u7b54\u7684\u4f4d\u7f6e\u505c\u4e0b\u3002",
-    "\u907f\u514d\u603b\u7ed3\u5f0f\u53d9\u4e8b\u3001\u5957\u8def\u5316\u5347\u534e\u3001\u8fde\u7eed\u53cd\u95ee\u3001\u8fc7\u5ea6\u534e\u4e3d\u6bd4\u55bb\u548c\u7a81\u5140\u53cd\u8f6c\u3002",
-    "\u5168\u7bc7\u53d9\u4e8b\u4eba\u79f0\u5df2\u9501\u5b9a\u4e3a\u201c" + story.pov + "\u201d\uff0c\u5fc5\u987b\u4e0e\u5df2\u6709\u6b63\u6587\u4fdd\u6301\u4e00\u81f4\uff0c\u4efb\u4f55\u60c5\u51b5\u4e0b\u90fd\u4e0d\u5f97\u81ea\u884c\u5207\u6362\u4eba\u79f0\u3002",
-    story.pov === "\u7b2c\u4e00\u4eba\u79f0"
-      ? "\u4f7f\u7528\u201c\u6211\u201d\u4f5c\u4e3a\u53d9\u8ff0\u4e3b\u4f53\uff0c\u53ea\u5199\u53d9\u8ff0\u8005\u80fd\u611f\u77e5\u3001\u56de\u5fc6\u6216\u63a8\u65ad\u7684\u4fe1\u606f\u3002"
-      : story.pov === "\u7b2c\u4e8c\u4eba\u79f0"
-        ? "\u4f7f\u7528\u201c\u4f60\u201d\u6307\u4ee3\u6838\u5fc3\u89c6\u89d2\u89d2\u8272\uff0c\u4fdd\u6301\u7a33\u5b9a\u7684\u7b2c\u4e8c\u4eba\u79f0\u53d9\u8ff0\uff0c\u4e0d\u5f97\u6ed1\u5411\u7b2c\u4e00\u6216\u7b2c\u4e09\u4eba\u79f0\u3002"
-        : "\u4f7f\u7528\u89d2\u8272\u59d3\u540d\u6216\u201c\u4ed6/\u5979\u201d\u8fdb\u884c\u7b2c\u4e09\u4eba\u79f0\u53d9\u8ff0\uff0c\u4e0d\u5f97\u628a\u7528\u6237\u8f93\u5165\u4e2d\u7684\u201c\u6211\u201d\u76f4\u63a5\u5e26\u5165\u6b63\u6587\u3002",
-    "\u6587\u98ce\uff1a" + story.style + "\u3002",
+    "你是一位成熟的中文长篇小说作者，也是隐形的互动叙事引擎。",
+    "只输出可以直接进入小说正文的内容，不解释创作思路，不使用 Markdown 标题，不复述用户指令。",
+    "必须承接已有正文，保持人物动机、空间位置、时间顺序和信息边界一致。",
+    "用户以角色身份介入时，用户输入中的“我”只代表其扮演的角色，不代表正文必须改成第一人称。将用户明确提供的言行视为已经发生的剧情事实，再严格按设置的叙事视角写入正文；不得因为用户使用“我”而改变人称。对用户所扮演的角色实行严格的玩家代理权边界：只能写用户本次明确输入的动作、台词和意图，不得替该角色新增任何动作、台词、心理判断、承诺、决定或目标。不得擅自引入新人物、新线索、突发事件或新的剧情分支。输出应集中于用户行为的小说化呈现、现场环境与氛围、可观察的动作神态、其他人物的直接反应与必然的即时后果，并在需要玩家继续选择或回答的位置停下。",
+    "避免总结式叙事、套路化升华、连续反问、过度华丽比喻和突兀反转。",
+    "全篇叙事人称已锁定为“" + story.pov + "”，必须与已有正文保持一致，任何情况下都不得自行切换人称。",
+    story.pov === "第一人称"
+      ? "使用“我”作为叙述主体，只写叙述者能感知、回忆或推断的信息。"
+      : story.pov === "第二人称"
+        ? "使用“你”指代核心视角角色，保持稳定的第二人称叙述，不得滑向第一或第三人称。"
+        : "使用角色姓名或“他/她”进行第三人称叙述，不得把用户输入中的“我”直接带入正文。",
+    "文风：" + story.style + "。",
     getLengthInstruction(story.length),
-    story.genre ? "\u7c7b\u578b\uff1a" + story.genre + "\u3002" : "",
-    story.premise ? "\u6545\u4e8b\u539f\u59cb\u8bbe\u5b9a\uff1a\n" + story.premise : "",
-    story.playerRole ? "\u7528\u6237\u4e3b\u8981\u626e\u6f14\u89d2\u8272\uff1a" + story.playerRole + "\u3002" : "",
+    story.genre ? "类型：" + story.genre + "。" : "",
+    story.premise ? "故事原始设定：\n" + story.premise : "",
+    story.playerRole ? "用户主要扮演角色：" + story.playerRole + "。" : "",
     memoryBlock,
-    "【强制要求·声线标注】每句人物对话的引号后必须紧跟 [m] 或 [f]：男性角色用 [m]，女性角色用 [f]。旁白叙述不加任何标记。示例：\"你来了。\"[m] \"嗯。\"[f] \"我先走了。\"[m] 不遵守此规则会导致朗读功能失效。",
+    "【强制要求·声线标注】每句人物对话的引号后必须紧跟 [m] 或 [f]：男性角色用 [m]，女性角色用 [f]。旁白叙述不加任何标记。示例：“你来了。”[m] “嗯。”[f] “我先走了。”[m] 不遵守此规则会导致朗读功能失效。",
   ].filter(Boolean).join("\n\n");
 }
 
 function getLengthInstruction(length) {
-  if (length === "short") return "\u672c\u6b21\u53ea\u751f\u6210\u4e00\u4e2a\u8f83\u77ed\u7684\u5267\u60c5\u7247\u6bb5\uff0c\u63a7\u5236\u5728 250 \u81f3 400 \u4e2a\u4e2d\u6587\u5b57\u7b26\uff0c\u63a5\u8fd1 300 \u5b57\u65f6\u81ea\u7136\u505c\u5728\u53ef\u7eed\u7ee7\u7684\u4f4d\u7f6e\u3002";
-  if (length === "long") return "\u672c\u6b21\u53ea\u751f\u6210\u4e00\u4e2a\u8f83\u957f\u7684\u5267\u60c5\u7247\u6bb5\uff0c\u63a7\u5236\u5728 900 \u81f3 1300 \u4e2a\u4e2d\u6587\u5b57\u7b26\uff0c\u63a5\u8fd1 1100 \u5b57\u65f6\u81ea\u7136\u6536\u675f\uff0c\u4e0d\u8981\u5199\u6210\u5b8c\u6574\u7ae0\u8282\u3002";
-  return "\u672c\u6b21\u53ea\u751f\u6210\u4e00\u4e2a\u4e2d\u7b49\u957f\u5ea6\u7684\u5267\u60c5\u7247\u6bb5\uff0c\u63a7\u5236\u5728 500 \u81f3 800 \u4e2a\u4e2d\u6587\u5b57\u7b26\uff0c\u63a5\u8fd1 650 \u5b57\u65f6\u81ea\u7136\u505c\u5728\u53ef\u7eed\u7ee7\u7684\u4f4d\u7f6e\u3002";
+  if (length === "short") return "本次只生成一个较短的剧情片段，控制在 250 至 400 个中文字符，接近 300 字时自然停在可续继的位置。";
+  if (length === "long") return "本次只生成一个较长的剧情片段，控制在 900 至 1300 个中文字符，接近 1100 字时自然收束，不要写成完整章节。";
+  return "本次只生成一个中等长度的剧情片段，控制在 500 至 800 个中文字符，接近 650 字时自然停在可续继的位置。";
 }
+
+/* ---- 辅助 ---- */
 
 export function looksNarrativeIncomplete(text) {
   var value = String(text || "").trim();
   if (!value) return false;
-  if (/[。！？!?…"’」』）)]$/.test(value)) return false;
-  return /[\u3400-\u9fffA-Za-z0-9，、；：—…"'（(]$/.test(value);
+  if (/[。！？!?…"』」』）)]$/.test(value)) return false;
+  return /[㐀-鿿A-Za-z0-9，、；：—…"'（(]$/.test(value);
 }
 
 export function getLengthMaxTokens(length) {
@@ -73,6 +85,10 @@ export function recentNarrative(chapter) {
   return chapter.segments.slice(-12).map(function (segment) {
     return segment.content;
   }).join("\n\n").slice(-18000);
+}
+
+function parseMemoryJson(raw) {
+  return JSON.parse(String(raw || "").replace(/^```json\s*|```$/g, "").trim());
 }
 
 /* ---- 记忆整理轮播标语 ---- */
@@ -110,32 +126,121 @@ async function generateMemoryLabels(story) {
   try {
     var result = "";
     await streamCompletion([
-      {
-        role: "system",
-        content: "你是小说记忆编辑助手。只返回 JSON 数组，不要任何其他内容。"
-      },
-      {
-        role: "user",
-        content: [
-          "根据以下故事设定，生成 5~8 条简洁的「记忆整理标语」——描述你正在做什么的短句。",
-          "要求：每条 8~15 个中文字，口语化、有趣、贴合故事内容。",
-          '返回纯 JSON 数组，如 ["正在梳理人物关系脉络","已记载李咸鱼的修炼历程"]',
-          "故事设定：" + (story.premise || "未设定")
-        ].join("\n")
-      }
+      { role: "system", content: "你是小说记忆编辑助手。只返回 JSON 数组，不要任何其他内容。" },
+      { role: "user", content: [
+        "根据以下故事设定，生成 5~8 条简洁的「记忆整理标语」——描述你正在做什么的短句。",
+        "要求：每条 8~15 个中文字，口语化、有趣、贴合故事内容。",
+        '返回纯 JSON 数组，如 ["正在梳理人物关系脉络","已记载李咸鱼的修炼历程"]',
+        "故事设定：" + (story.premise || "未设定")
+      ].join("\n") }
     ], function (delta) { result += delta; }, {
-      maxTokens: 256,
-      temperature: 0.7,
-      thinking: "disabled"
+      maxTokens: 256, temperature: 0.7, thinking: "disabled"
     });
-    var cleaned = result.replace(/^```json\s*|```$/g, "").trim();
-    var arr = JSON.parse(cleaned);
+    var arr = JSON.parse(result.replace(/^```json\s*|```$/g, "").trim());
     if (Array.isArray(arr) && arr.length && arr.every(function (s) { return typeof s === "string" && s.trim(); })) {
       return arr.map(function (s) { return s.trim(); });
     }
     return null;
+  } catch (e) { return null; }
+}
+
+/* ---- 单章记忆提取 prompt ---- */
+
+function buildChapterExtractPrompt(chapter, chapterIndex, story, oldSummary) {
+  var chRecent = chapter.segments.slice(-12).map(function (s) { return s.content; }).filter(Boolean).join("\n\n").slice(-18000);
+  var prompt = [
+    "请分析以下小说正文，为指定章节生成或更新记忆。返回严格 JSON，不使用 Markdown 代码块。",
+    "当前是第 " + chapterIndex + " 章，标题：「" + chapter.title + "」。",
+    '{"summary":"本章剧情摘要，必须以【第' + chapterIndex + '章】开头，不要自行编造章节编号","characters":"人物关系（全局，每对关系双向各输出一条，输出完整最新版）。格式：角色名——关系描述——关联角色名。每对关系必须输出两条，互相指向。若角色暂无关联，写：角色名——独立角色——（无）。主角列最前。","worldConstants":"世界观、力量体系、不变规则（输出完整最新版，非增量）","worldEvolution":"随剧情演化的状态、地点、物品（输出完整最新版，非增量）","threads":"未解决的悬念与伏笔（输出完整最新版，非增量）","characterAttributes":"主角外貌、衣着、修为/武力等（输出完整最新版，非增量）"}',
+    "要求：人物关系、世界观、世界演化、伏笔、主角属性这五个字段，请基于已有记录和本章新内容输出完整的最新版本——保留已有记录中仍然准确的部分，删除已不再适用的内容，融入本章新增的信息。不要输出增量补充。",
+    "已有记录：\n" + JSON.stringify({
+      chapterSummary: (oldSummary || "").slice(0, 3000),
+      characters: (story.memory.characters || "").slice(0, 3000),
+      worldConstants: (story.memory.worldConstants || "").slice(0, 3000),
+      worldEvolution: (story.memory.worldEvolution || "").slice(0, 3000),
+      threads: (story.memory.threads || "").slice(0, 3000),
+      characterAttributes: (story.memory.characterAttributes || "").slice(0, 3000),
+    }),
+    "原始设定：\n" + (story.premise || "无"),
+    "本章正文（最近部分）：\n" + chRecent,
+  ];
+  if (oldSummary) prompt.push("已有本章旧摘要如下，请在保留核心事实的基础上合并更新：\n" + oldSummary.slice(0, 5000));
+  return prompt.join("\n\n");
+}
+
+/* ---- 全局字段合并（新增） ---- */
+
+async function consolidateGlobalFields(story, snapshots) {
+  // 只有 1 个快照且无旧记忆 → 直接复用
+  if (snapshots.length === 1 && !story.memory.characters && !story.memory.worldConstants && !story.memory.worldEvolution && !story.memory.threads && !story.memory.characterAttributes) {
+    GLOBAL_KEYS.forEach(function (key) {
+      if (typeof snapshots[0][key] === "string" && snapshots[0][key].trim()) {
+        story.memory[key] = snapshots[0][key].trim();
+      }
+    });
+    return;
+  }
+
+  // 收集旧记忆作为基线
+  var oldBlock = "";
+  var hasOld = false;
+  GLOBAL_KEYS.forEach(function (key) {
+    if (story.memory[key] && story.memory[key].trim()) {
+      oldBlock += "\n【合并前·" + FIELD_LABELS[key] + "】\n" + story.memory[key].trim() + "\n";
+      hasOld = true;
+    }
+  });
+  if (hasOld) oldBlock = "【已有的全局记忆（合并基线）】" + oldBlock;
+
+  // 收集各章快照
+  var snapBlocks = "";
+  GLOBAL_KEYS.forEach(function (key) {
+    var parts = snapshots.filter(function (s) { return s[key] && s[key].trim(); });
+    if (!parts.length) return;
+    snapBlocks += "\n【各章·" + FIELD_LABELS[key] + "】";
+    parts.forEach(function (s) {
+      snapBlocks += "\n" + s._label + "：\n" + s[key].trim() + "\n";
+    });
+  });
+
+  var prompt = [
+    "以下是从各章节分别提取的记忆片段，请合并为一份完整、去重、一致的全局记忆。",
+    "合并规则：",
+    "1. 人物关系：同一对关系保留最详细的描述；若不同章节对同一关系描述有差异，以最新章节为准；每对关系双向各一条。",
+    "2. 世界常数：保留所有不矛盾的规则和设定；重复的合并为最精确的描述。",
+    "3. 世界演化：按时间顺序保留所有状态变化；若新章节的状态与旧记录矛盾，以新章节为准。",
+    "4. 未解伏笔：去除已解决的伏笔，保留所有未解决的问题；不同章节对同一伏笔的描述合并。",
+    "5. 主角属性：以最新章节的描述为准，同时保留旧记录中新章节未提及但可能仍然准确的信息。",
+    "务必保留所有仍然有效的信息，只在确实存在矛盾时才修剪旧记录。",
+    oldBlock,
+    snapBlocks,
+    '返回严格 JSON（不要 Markdown 代码块）：{"characters":"所有人物关系，格式：角色名——关系描述——关联角色名，双向","worldConstants":"世界观与不变量","worldEvolution":"状态与演化","threads":"未解决伏笔","characterAttributes":"主角属性"}'
+  ].filter(Boolean).join("\n\n");
+
+  try {
+    var result = "";
+    await streamCompletion([
+      { role: "system", content: "你是小说记忆合并编辑。请忠实合并各章节的记忆片段：去重、查矛盾、保完整。不编造原文中没有的新信息。" },
+      { role: "user", content: prompt }
+    ], function (delta) { result += delta; }, { maxTokens: 2048, temperature: 0.2 });
+
+    var mem = parseMemoryJson(result);
+    GLOBAL_KEYS.forEach(function (key) {
+      if (typeof mem[key] === "string" && mem[key].trim()) {
+        story.memory[key] = mem[key].trim();
+      }
+    });
   } catch (e) {
-    return null;
+    // 合并失败时回退到最后一个有内容的快照
+    for (var i = snapshots.length - 1; i >= 0; i--) {
+      GLOBAL_KEYS.forEach(function (key) {
+        if (typeof snapshots[i][key] === "string" && snapshots[i][key].trim() && !story.memory[key]) {
+          story.memory[key] = snapshots[i][key].trim();
+        }
+      });
+    }
+    console.warn("全局记忆合并失败，使用最后一章快照回退", e);
+    // 不 re-throw：快照已回退保存，不要阻断用户流程
   }
 }
 
@@ -149,10 +254,12 @@ export async function summarizeMemory() {
   if (labels) startCarousel(labels);
   try {
     var summarizedAny = false;
+    var globalSnapshots = [];
+
     for (var ci = 0; ci < story.chapters.length; ci++) {
       var ch = story.chapters[ci];
       if (!ch.segments.some(function (s) { return String(s.content || "").trim(); })) continue;
-      // 判断本章是否需要整理
+
       var hasSummary = !!story.memory.chapterSummaries[ch.id];
       var hasCommitted = !!ch.memoryCommittedAt;
       var latestSegCreatedAt = "";
@@ -163,46 +270,41 @@ export async function summarizeMemory() {
 
       summarizedAny = true;
       var chapterIndex = ci + 1;
-      var chRecent = ch.segments.slice(-12).map(function (s) { return s.content; }).filter(Boolean).join("\n\n").slice(-18000);
       var oldSummary = story.memory.chapterSummaries[ch.id] || "";
-      var prompt = [
-        "请分析以下小说正文，为指定章节生成或更新记忆。返回严格 JSON，不使用 Markdown 代码块。",
-        "当前是第 " + chapterIndex + " 章，标题：「" + ch.title + "」。",
-        '{"summary":"本章剧情摘要，必须以【第' + chapterIndex + '章】开头，不要自行编造章节编号","characters":"人物关系（全局，每对关系双向各输出一条，输出完整最新版）。格式：角色名——关系描述——关联角色名。每对关系必须输出两条，互相指向。例如赵云对张飞是师兄弟、张飞对赵云是被师兄弟，则输出两行：赵云——师兄弟——张飞\\n张飞——被师兄弟——赵云。若角色暂无关联，写：角色名——独立角色——（无）。主角列最前。","worldConstants":"世界观、力量体系、不变规则（输出完整最新版，非增量）","worldEvolution":"随剧情演化的状态、地点、物品（输出完整最新版，非增量）","threads":"未解决的悬念与伏笔（输出完整最新版，非增量）","characterAttributes":"主角外貌、衣着、修为/武力等（输出完整最新版，非增量）"}',
-        "要求：人物关系、世界观、世界演化、伏笔、主角属性这五个字段，请基于已有记录和本章新内容输出完整的最新版本——保留已有记录中仍然准确的部分，删除已不再适用的内容，融入本章新增的信息。不要输出增量补充。",
-        "已有记录：\n" + JSON.stringify({
-          chapterSummary: oldSummary.slice(0, 3000),
-          characters: (story.memory.characters || "").slice(0, 3000),
-          worldConstants: (story.memory.worldConstants || "").slice(0, 3000),
-          worldEvolution: (story.memory.worldEvolution || "").slice(0, 3000),
-          threads: (story.memory.threads || "").slice(0, 3000),
-          characterAttributes: (story.memory.characterAttributes || "").slice(0, 3000),
-        }),
-        "原始设定：\n" + (story.premise || "无"),
-        "本章正文（最近部分）：\n" + chRecent,
-      ].join("\n\n");
-      if (oldSummary) {
-        prompt += "\n\n已有本章旧摘要如下，请在保留核心事实的基础上合并更新：\n" + oldSummary.slice(0, 5000);
-      }
+      var prompt = buildChapterExtractPrompt(ch, chapterIndex, story, oldSummary);
+
       var result = "";
       await streamCompletion([
         { role: "system", content: "你是小说连续性编辑，只维护准确的故事状态。人物关系请使用 角色名——关系——关联角色名 的格式，每行一条关系，不要输出自然语言描述。" },
         { role: "user", content: prompt }
       ], function (delta) { result += delta; });
-      var cleaned = result.replace(/^```json\s*|```$/g, "").trim();
-      var mem = JSON.parse(cleaned);
+
+      var mem = parseMemoryJson(result);
+
+      // 摘要：照常写入分章
       if (typeof mem.summary === "string" && mem.summary.trim()) {
         story.memory.chapterSummaries[ch.id] = mem.summary.trim();
       }
-      // 非摘要字段：原位覆盖，不再拼接
-      var mergeKeys = ["characters", "worldConstants", "worldEvolution", "threads", "characterAttributes"];
-      mergeKeys.forEach(function (key) {
+
+      // 全局字段：收集快照，不逐章覆盖
+      var snap = { _label: "【第" + chapterIndex + "章·" + ch.title + "】" };
+      var hasGlobals = false;
+      GLOBAL_KEYS.forEach(function (key) {
         if (typeof mem[key] === "string" && mem[key].trim()) {
-          story.memory[key] = mem[key].trim();
+          snap[key] = mem[key].trim();
+          hasGlobals = true;
         }
       });
+      if (hasGlobals) globalSnapshots.push(snap);
+
       ch.memoryCommittedAt = new Date().toISOString();
     }
+
+    // 合并全局字段
+    if (globalSnapshots.length > 0) {
+      await consolidateGlobalFields(story, globalSnapshots);
+    }
+
     touchStory();
     renderMemory();
     toast(el.toast, summarizedAny ? "故事记忆已更新" : "各章节均无新增内容，无需整理");
@@ -215,6 +317,8 @@ export async function summarizeMemory() {
   }
 }
 
+/* ---- 新章前整理 ---- */
+
 export async function prepareChapterMemory() {
   if (state.generating) return false;
   var story = getStory();
@@ -224,9 +328,7 @@ export async function prepareChapterMemory() {
   var sourceChapters = story.chapters.filter(function (chapter) {
     return chapter.id !== activeChapter.id &&
       !chapter.memoryCommittedAt &&
-      chapter.segments.some(function (segment) {
-        return String(segment.content || "").trim();
-      });
+      chapter.segments.some(function (segment) { return String(segment.content || "").trim(); });
   });
   if (!sourceChapters.length) return true;
 
@@ -234,6 +336,8 @@ export async function prepareChapterMemory() {
   var labels = await generateMemoryLabels(story);
   if (labels) startCarousel(labels);
   try {
+    var globalSnapshots = [];
+
     for (var si = 0; si < sourceChapters.length; si++) {
       var ch = sourceChapters[si];
       var chapterIndex = story.chapters.indexOf(ch) + 1;
@@ -241,7 +345,7 @@ export async function prepareChapterMemory() {
       var prompt = [
         "即将进入新章节。请为以下章节生成独立记忆条目，返回严格 JSON，不使用 Markdown 代码块。",
         "当前归档的是第 " + chapterIndex + " 章，标题：「" + ch.title + "」。",
-        '{"summary":"本章剧情摘要，必须以【第' + chapterIndex + '章】开头，不要自行编造章节编号","characters":"人物关系（全局，每对关系双向各输出一条，输出完整最新版）。格式：角色名——关系描述——关联角色名。每对关系必须输出两条，互相指向。例如赵云对张飞是师兄弟、张飞对赵云是被师兄弟，则输出两行：赵云——师兄弟——张飞\\n张飞——被师兄弟——赵云。若角色暂无关联，写：角色名——独立角色——（无）。主角列最前。","worldConstants":"世界观、力量体系、不变规则（输出完整最新版，非增量）","worldEvolution":"本章涉及的状态变化（输出完整最新版，非增量）","threads":"仍未解决的目标、冲突、悬念与伏笔（输出完整最新版，非增量）","characterAttributes":"主角属性更新（输出完整最新版，非增量）"}',
+        '{"summary":"本章剧情摘要，必须以【第' + chapterIndex + '章】开头，不要自行编造章节编号","characters":"人物关系（全局，每对关系双向各输出一条，输出完整最新版）。格式：角色名——关系描述——关联角色名。每对关系必须输出两条，互相指向。若角色暂无关联，写：角色名——独立角色——（无）。主角列最前。","worldConstants":"世界观、力量体系、不变规则（输出完整最新版，非增量）","worldEvolution":"本章涉及的状态变化（输出完整最新版，非增量）","threads":"仍未解决的目标、冲突、悬念与伏笔（输出完整最新版，非增量）","characterAttributes":"主角属性更新（输出完整最新版，非增量）"}',
         "要求：人物关系、世界观、世界演化、伏笔、主角属性这五个字段，请基于已有记录和本章内容输出完整的最新版本——保留已有记录中仍然准确的部分，删除已不再适用的内容，融入本章新增的信息。不要输出增量补充。",
         "已有记忆基础：\n" + JSON.stringify({
           characters: (story.memory.characters || "").slice(0, 3000),
@@ -251,6 +355,7 @@ export async function prepareChapterMemory() {
         "故事原始设定：\n" + (story.premise || "无"),
         "待归档章节正文：\n" + chText,
       ].join("\n\n");
+
       var result = "";
       await streamCompletion([
         { role: "system", content: "你是长篇小说的连续性编辑，只维护准确、紧凑、可供后续创作使用的故事记忆。人物关系请使用 角色名——关系——关联角色名 的格式，每行一条关系。" },
@@ -260,20 +365,31 @@ export async function prepareChapterMemory() {
         temperature: 0.2,
         thinking: "disabled",
       });
-      var cleaned = result.replace(/^```json\s*|```$/g, "").trim();
-      var mem = JSON.parse(cleaned);
+
+      var mem = parseMemoryJson(result);
+
       if (typeof mem.summary === "string" && mem.summary.trim()) {
         story.memory.chapterSummaries[ch.id] = mem.summary.trim();
       }
-      // 非摘要字段：原位覆盖，不再拼接
-      var mergeKeys = ["characters", "worldConstants", "worldEvolution", "threads", "characterAttributes"];
-      mergeKeys.forEach(function (key) {
+
+      var snap = { _label: "【第" + chapterIndex + "章·" + ch.title + "】" };
+      var hasGlobals = false;
+      GLOBAL_KEYS.forEach(function (key) {
         if (typeof mem[key] === "string" && mem[key].trim()) {
-          story.memory[key] = mem[key].trim();
+          snap[key] = mem[key].trim();
+          hasGlobals = true;
         }
       });
+      if (hasGlobals) globalSnapshots.push(snap);
+
       ch.memoryCommittedAt = new Date().toISOString();
     }
+
+    // 合并全局字段
+    if (globalSnapshots.length > 0) {
+      await consolidateGlobalFields(story, globalSnapshots);
+    }
+
     touchStory();
     renderMemory();
     toast(el.toast, "前文已整理，可以开始新章节");
@@ -295,7 +411,7 @@ function setBusy(busy, text) {
   el.composerInput.disabled = busy;
   el.sendBtn.classList.toggle("hidden", busy);
   el.stopBtn.classList.toggle("hidden", !busy);
-  el.statusText.textContent = text || (busy ? "\u6b63\u5728\u7eed\u5192\u2026" : "\u51c6\u5907\u5c31\u7eea");
+  el.statusText.textContent = text || (busy ? "正在续写…" : "准备就绪");
   el.topLoader.classList.toggle("active", busy);
   el.topLoader.setAttribute("aria-hidden", busy ? "false" : "true");
 }

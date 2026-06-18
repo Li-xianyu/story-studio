@@ -13,10 +13,10 @@
   body:not(.library-collapsed) { --g-left: calc(10px + min(300px, 100vw * 0.24)); }
   body:has(.controls-panel.open) { --g-right: calc(10px + min(300px, 100vw * 0.24)); }
   .composer {
-    --g-free: calc(100% - var(--g-left) - var(--g-right));
-    --c-mid: max(24px, (var(--g-free) - var(--reader-width)) / 2);
-    left: calc(var(--g-left) + var(--c-mid));
-    width: calc(var(--g-free) - 2 * var(--c-mid));
+    --free: calc(100% - var(--g-left, 0px) - var(--g-right, 0px));
+    --w: min(var(--reader-width), calc(var(--free) - 48px));
+    width: var(--w);
+    left: calc(var(--g-left, 0px) + (var(--free) - var(--w)) / 2);
     max-width: var(--reader-width);
     transform: none;
   }
@@ -87,7 +87,8 @@
 
   .player-bar {
     bottom: calc(var(--composer-height, 164px) + 20px);
-    width: calc(100% - 16px);
+    left: calc(var(--g-left, 0px) + (100% - var(--g-left, 0px) - var(--g-right, 0px)) / 2);
+    width: calc(100% - var(--g-left, 0px) - var(--g-right, 0px) - 16px);
     display: grid;
     grid-template-columns: auto 1fr;
     grid-template-rows: auto auto;
