@@ -66,6 +66,8 @@ export function segmentHtml(segment, speechOffset, isLast) {
     }).join("") + "</div>";
 }
 
+var lastRenderedChapterId = null;
+
 export function renderStory(options) {
   var story = getStory();
   var chapter = getChapter();
@@ -75,8 +77,17 @@ export function renderStory(options) {
     el.storyContent.innerHTML = "";
     el.storyTitle.textContent = "";
     el.storyMeta.textContent = "";
+    lastRenderedChapterId = null;
     return;
   }
+  var shouldScrollToBottom = false;
+  if (options && options.toBottom) {
+    shouldScrollToBottom = true;
+  } else if (chapter.id !== lastRenderedChapterId) {
+    shouldScrollToBottom = true;
+  }
+  lastRenderedChapterId = chapter.id;
+
   var hasContent = chapter.segments.some(function (segment) { return segment.content; });
   var hasStarted = Boolean(story.started || story.premise || chapter.segments.length || state.generating);
   var welcomeMode = isPristineStory(story);
@@ -94,15 +105,15 @@ export function renderStory(options) {
   var words = chapter.segments.reduce(function (sum, segment) { return sum + String(segment.content || "").length; }, 0);
   var chapterIndex = story.chapters.findIndex(function (item) { return item.id === chapter.id; }) + 1;
   el.storyMeta.textContent = "\u7b2c " + chapterIndex + " \u7ae0 \u00b7 " + words + " \u5b57";
-		  if (options && options.toBottom) {
-		    requestAnimationFrame(function () {
-		      var rv = el.readerViewport;
-		      rv.dataset.programmaticScroll = '1';
-		      rv.style.scrollBehavior = 'auto';
-		      rv.scrollTop = rv.scrollHeight;
-		      rv.style.removeProperty('scroll-behavior');
-		    });
-		  }
+  if (shouldScrollToBottom) {
+    requestAnimationFrame(function () {
+      var rv = el.readerViewport;
+      rv.dataset.programmaticScroll = '1';
+      rv.style.scrollBehavior = 'auto';
+      rv.scrollTop = rv.scrollHeight;
+      rv.style.removeProperty('scroll-behavior');
+    });
+  }
 }
 
 function syncThemeColor() {
@@ -125,6 +136,17 @@ export function renderControls() {
   el.lengthSelect.value = story.length || "medium";
   el.styleInput.value = story.style || "";
   el.playerRoleInput.value = story.playerRole || "";
+  
+  var disableRole = story.pov === "第一人称" || story.pov === "第二人称";
+  el.playerRoleInput.disabled = disableRole;
+  if (disableRole) {
+    el.playerRoleInput.title = "第一/第二人称视角下无法更改主角";
+    el.playerRoleInput.placeholder = "无法修改主角";
+  } else {
+    el.playerRoleInput.removeAttribute("title");
+    el.playerRoleInput.placeholder = "例如：沈砚";
+  }
+
   el.premiseInput.value = story.premise || "";
   el.autoContinueToggle.checked = Boolean(story.autoContinue);
   el.autoTtsToggle.checked = Boolean(story.autoTts);

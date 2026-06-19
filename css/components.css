@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    娴厜鍓у満 路 Components
    ============================================================ */
 
@@ -1020,5 +1020,49 @@ label:has(custom-select) > custom-select {
 .dot-spinner span:nth-child(8) { transform: rotate(315deg); opacity: 0.02; }
 @keyframes spin {
   100% { transform: rotate(360deg); }
+}
+
+/* ---- 移动端长按进度环 ---- */
+.long-press-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 96px;
+  height: 96px;
+  margin-top: -48px;
+  margin-left: -48px;
+  transform: rotate(-90deg);
+  pointer-events: none;
+  z-index: 10000;
+  opacity: 0;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35));
+  transition: opacity 0.2s ease-in-out;
+}
+.long-press-ring.active {
+  opacity: 1;
+}
+.long-press-ring circle.bg {
+  fill: none;
+  stroke: var(--separator-light, rgba(255, 255, 255, 0.15));
+  stroke-width: 4px;
+}
+.long-press-ring circle.progress {
+  fill: none;
+  stroke: var(--accent, #0a84ff);
+  stroke-width: 4px;
+  stroke-linecap: round;
+  stroke-dasharray: 176;
+  stroke-dashoffset: 176;
+}
+.long-press-ring.active circle.progress {
+  animation: longPressFill 1s linear forwards;
+}
+@keyframes longPressFill {
+  from {
+    stroke-dashoffset: 176;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 

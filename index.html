@@ -475,25 +475,19 @@
 
   <div id="toast" class="toast"></div>
 
-  <!-- 全页面右键菜单 -->
   <div id="contextMenu" class="context-menu">
-    <button id="ctxContinue" class="context-menu-item"><i data-lucide="fast-forward"></i><span>继续写</span><small>快速续写</small></button>
-    <button id="ctxSummarize" class="context-menu-item"><i data-lucide="brain"></i><span>整理记忆</span><small>更新故事摘要与人物关系</small></button>
-    <button id="ctxRewriteLast" class="context-menu-item"><i data-lucide="refresh-cw"></i><span>重写末段</span><small>删掉最后一段重新生成</small></button>
-    <button id="ctxSaveBranch" class="context-menu-item"><i data-lucide="git-branch"></i><span>保存分支</span><small>快照当前进度</small></button>
-    <div class="context-separator"></div>
-    <button id="ctxToggleLibrary" class="context-menu-item"><i data-lucide="menu"></i><span>切换书架</span></button>
-    <button id="ctxToggleControls" class="context-menu-item"><i data-lucide="sliders-horizontal"></i><span>故事控制</span></button>
-    <button id="ctxToggleFocus" class="context-menu-item"><i data-lucide="maximize-2"></i><span>沉浸模式</span></button>
-    <div class="context-separator"></div>
+    <button id="ctxReadFromHere" class="context-menu-item"><i data-lucide="play"></i><span>从这里朗读</span></button>
+    <button id="ctxSummarize" class="context-menu-item"><i data-lucide="brain"></i><span>整理记忆</span></button>
     <button id="ctxReadSettings" class="context-menu-item"><i data-lucide="book"></i><span>阅读设置</span></button>
-    <button id="ctxExport" class="context-menu-item"><i data-lucide="upload"></i><span>导出故事</span></button>
-    <button id="ctxNewStory" class="context-menu-item"><i data-lucide="plus"></i><span>新建故事</span></button>
   </div>
 
   <script src="./vendor/lucide/0.468.0/lucide.min.js"></script>
   <script src="./vendor/antv-g6/5.1.1/g6.min.js"></script>
   <script type="module" src="./js/app.js?v=20260613v"></script>
+  <svg id="longPressRing" class="long-press-ring" viewBox="0 0 64 64">
+    <circle class="bg" cx="32" cy="32" r="28"></circle>
+    <circle class="progress" cx="32" cy="32" r="28"></circle>
+  </svg>
 </body>
 </html>
 

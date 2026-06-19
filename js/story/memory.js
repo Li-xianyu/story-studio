@@ -86,9 +86,10 @@ export function buildSystemPrompt(story) {
 }
 
 function getLengthInstruction(length) {
-  if (length === "short") return "本次只生成一个较短的剧情片段，控制在 250 至 400 个中文字符，接近 300 字时自然停在可续继的位置。";
-  if (length === "long") return "本次只生成一个较长的剧情片段，控制在 900 至 1300 个中文字符，接近 1100 字时自然收束，不要写成完整章节。";
-  return "本次只生成一个中等长度的剧情片段，控制在 500 至 800 个中文字符，接近 650 字时自然停在可续继的位置。";
+  var rule = "【强制收束要求】绝对不要在句子中途被截断。当你感觉接近字数上限时，请提前进行剧情收束，必须以完整的标点符号（。！？…”）结尾，确保最后一段是一个完整的句子，千万不要留下半句话。";
+  if (length === "short") return "本次只生成一个较短的剧情片段，控制在 250 至 400 个中文字符，接近 300 字时自然停在可续继的位置。" + rule;
+  if (length === "long") return "本次只生成一个较长的剧情片段，控制在 900 至 1300 个中文字符，接近 1100 字时自然收束，不要写成完整章节。" + rule;
+  return "本次只生成一个中等长度的剧情片段，控制在 500 至 800 个中文字符，接近 650 字时自然停在可续继的位置。" + rule;
 }
 
 /* ---- 辅助 ---- */
@@ -101,9 +102,9 @@ export function looksNarrativeIncomplete(text) {
 }
 
 export function getLengthMaxTokens(length) {
-  if (length === "short") return 850;
-  if (length === "long") return 2600;
-  return 1550;
+  if (length === "short") return 1100;
+  if (length === "long") return 3200;
+  return 2000;
 }
 
 export function recentNarrative(chapter) {

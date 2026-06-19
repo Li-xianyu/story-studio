@@ -166,16 +166,17 @@ function rolePovInstruction(story) {
 }
 
 function buildRoleInstruction(story, value) {
+  var roleName = story.playerRole || "当前主角";
   return [
-    "用户以角色「" + (story.playerRole || "当前主角") + "」提供了一段剧情草稿：",
+    "用户以角色「" + roleName + "」提供了一段剧情草稿：",
     value,
     "",
     "请把这段草稿视为角色已经做出或说出的事实，而不是可以原样复制进正文的第一人称文本。先解析「我」所指的角色，再改写成可直接接在前文之后的小说正文，随后描写环境和其他人物的自然反应。",
     "当前叙事视角由设置明确指定为「" + story.pov + "」，只能服从该设置，不得根据用户输入中的「我」或前文措辞自行改变人称。",
     rolePovInstruction(story),
-    "玩家角色的控制权属于用户。只允许呈现本次输入已经明确写出的动作、台词和意图；禁止替玩家角色追加新的动作、台词、心理活动、判断、承诺、决定或下一步计划。",
+    "【绝对硬性禁止代笔】当前用户扮演的视角角色为「" + roleName + "」。你必须严格遵守其玩家代理权边界：在改写完用户输入框中该角色明确提供的动作与台词后，绝对不许替「" + roleName + "」描写任何额外的言行、动作、神态、心理活动或做出决定！后续内容只能描写现场环境，或让在场的其他 NPC 角色做出即时的反应与对话，并在需要「" + roleName + "」做出反应的时刻自然停下。",
     "不要为了推进故事而擅自引入新人物、新线索、突发事件、冲突升级或新的剧情分支。重点描写当前场景的空间、光线、声音、气味与氛围，细化已经发生的动作神态，并让在场其他人物针对用户明确行为作出直接、克制且符合人物逻辑的反应。",
-    "如果用户向某人提问，最多写到对方的回答、犹豫或可观察反应；不要继续替玩家角色追问、表态或采取下一步行动。应在自然等待用户继续输入的位置停下。",
+    "如果用户向某人提问，最多写到对方的回答、犹豫或可观察反应；绝对不要继续替玩家角色「" + roleName + "」追问、表态或采取下一步行动。应在自然等待用户继续输入的位置停下。",
     "保持前文文风、时态、语气和信息边界，不显示角色标签，不引用原始输入，不解释改写过程。"
   ].join("\n");
 }
@@ -582,6 +583,10 @@ async function copySegmentContent(segmentId, button) {
 function applyStoryControl(field, value) {
   var story = getStory();
   if (!story) return;
+  if (field === "playerRole" && (story.pov === "第一人称" || story.pov === "第二人称")) {
+    el.playerRoleInput.value = story.playerRole || "";
+    return;
+  }
   story[field] = value;
   touchStory();
 }
@@ -877,10 +882,51 @@ export function bindEvents() {
 	    el.scrollToBottomBtn.classList.add("hidden");
 	  });
   var longPressTimer = 0;
+  var superLongPressTimer = 0;
   var longPressStart = null;
   var longPressTriggered = false;
   var lastMobileTap = null;
   var singleTapTimer = 0;
+
+  function hideLongPressRing() {
+    var ring = document.getElementById("longPressRing");
+    if (ring) ring.classList.remove("active", "animating");
+  }
+
+  function safeVibrate(pattern) {
+    if (navigator.vibrate) {
+      if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
+      try { navigator.vibrate(pattern); } catch(e) {}
+    }
+  }
+
+  function findClosestSegment(x, y) {
+    var segments = el.storyContent.querySelectorAll("[data-segment-id]");
+    if (segments.length === 0) return null;
+    var closestNode = null;
+    var minDistance = Infinity;
+    for (var i = 0; i < segments.length; i++) {
+      var rect = segments[i].getBoundingClientRect();
+      var distY = 0;
+      if (y < rect.top) {
+        distY = rect.top - y;
+      } else if (y > rect.bottom) {
+        distY = y - rect.bottom;
+      }
+      var distX = 0;
+      if (x < rect.left) {
+        distX = rect.left - x;
+      } else if (x > rect.right) {
+        distX = x - rect.right;
+      }
+      var dist = Math.hypot(distX, distY);
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestNode = segments[i];
+      }
+    }
+    return closestNode;
+  }
 
   function playParagraphFromNode(paragraph) {
     if (!state.tts.playing && !el.playerBar.classList.contains("open")) return;
@@ -906,64 +952,112 @@ export function bindEvents() {
 
   el.storyContent.addEventListener("pointerdown", function (event) {
     if (!window.matchMedia("(max-width: 760px)").matches || event.pointerType === "mouse") return;
-    var block = event.target.closest(".speech-block");
-    var segmentNode = event.target.closest("[data-segment-id]");
-    if (!segmentNode) return;
     longPressTriggered = false;
     longPressStart = {
       x: event.clientX,
       y: event.clientY,
       time: Date.now(),
-      block: block,
-      segment: segmentNode,
+      target: event.target,
     };
     clearTimeout(longPressTimer);
+    clearTimeout(superLongPressTimer);
+    hideLongPressRing();
     longPressTimer = setTimeout(function () {
       longPressTriggered = true;
       clearTimeout(singleTapTimer);
       lastMobileTap = null;
-      navigator.vibrate && navigator.vibrate(20);
-      toggleSegmentActions(segmentNode);
-      longPressStart = null;
+      safeVibrate(20);
+      
+      var targetNode = longPressStart.target;
+      var blockNode = targetNode.closest(".speech-block");
+      var segmentNode = targetNode.closest("[data-segment-id]");
+      if (!segmentNode) {
+        segmentNode = findClosestSegment(longPressStart.x, longPressStart.y);
+      }
+      if (!segmentNode) return;
+
+      if (!blockNode) {
+        blockNode = segmentNode.querySelector(".speech-block");
+      }
+
+      var wasOpen = segmentNode.classList.contains("actions-open");
+      if (!wasOpen) {
+        el.storyContent.querySelectorAll(".segment.actions-open").forEach(function (node) {
+          node.classList.remove("actions-open", "actions-fixed", "actions-bottom");
+        });
+        syncSegmentActionPlacement(segmentNode);
+        segmentNode.classList.add("actions-open");
+        window.getSelection().removeAllRanges();
+      }
+
+      var ring = document.getElementById("longPressRing");
+      if (ring) {
+        ring.style.left = longPressStart.x + "px";
+        ring.style.top = longPressStart.y + "px";
+        ring.classList.add("active");
+      }
+
+      superLongPressTimer = setTimeout(function () {
+        safeVibrate([30, 50, 30]);
+        hideLongPressRing();
+        segmentNode.classList.remove("actions-open", "actions-fixed", "actions-bottom");
+        showContextMenu(longPressStart.x, longPressStart.y, blockNode);
+        longPressStart = null;
+      }, 1000);
+
     }, 320);
   });
   el.storyContent.addEventListener("pointermove", function (event) {
     if (!longPressStart) return;
     if (Math.hypot(event.clientX - longPressStart.x, event.clientY - longPressStart.y) > 10) {
       clearTimeout(longPressTimer);
+      clearTimeout(superLongPressTimer);
+      hideLongPressRing();
       longPressStart = null;
     }
   });
   el.storyContent.addEventListener("pointerup", function (event) {
     clearTimeout(longPressTimer);
+    clearTimeout(superLongPressTimer);
+    hideLongPressRing();
     if (longPressStart && !longPressTriggered &&
         Date.now() - longPressStart.time < 320 &&
         Math.hypot(event.clientX - longPressStart.x, event.clientY - longPressStart.y) <= 10) {
       var now = Date.now();
-      var block = longPressStart.block;
-      var segmentNode = longPressStart.segment;
-      if (lastMobileTap &&
-          lastMobileTap.block === block &&
-          now - lastMobileTap.time <= 380 &&
-          Math.hypot(event.clientX - lastMobileTap.x, event.clientY - lastMobileTap.y) <= 28) {
-        event.preventDefault();
-        clearTimeout(singleTapTimer);
-        playParagraphFromNode(block);
-        lastMobileTap = null;
-	      } else {
-	        clearTimeout(singleTapTimer);
-	        lastMobileTap = { block: block, time: now, x: event.clientX, y: event.clientY, segment: segmentNode };
-	        singleTapTimer = setTimeout(function () {
-	          lastMobileTap = null;
-	        }, 400);
-	      }
+      var targetNode = longPressStart.target;
+      var segmentNode = targetNode.closest("[data-segment-id]");
+      if (!segmentNode) {
+        segmentNode = findClosestSegment(event.clientX, event.clientY);
+      }
+      if (segmentNode) {
+        var block = targetNode.closest(".speech-block") || segmentNode.querySelector(".speech-block");
+        if (block) {
+          if (lastMobileTap &&
+              lastMobileTap.block === block &&
+              now - lastMobileTap.time <= 380 &&
+              Math.hypot(event.clientX - lastMobileTap.x, event.clientY - lastMobileTap.y) <= 28) {
+            event.preventDefault();
+            clearTimeout(singleTapTimer);
+            playParagraphFromNode(block);
+            lastMobileTap = null;
+          } else {
+            clearTimeout(singleTapTimer);
+            lastMobileTap = { block: block, time: now, x: event.clientX, y: event.clientY, segment: segmentNode };
+            singleTapTimer = setTimeout(function () {
+              lastMobileTap = null;
+            }, 400);
+          }
+        }
+      }
     }
     longPressStart = null;
     longPressTriggered = false;
   });
   el.storyContent.addEventListener("pointercancel", function () {
     clearTimeout(longPressTimer);
+    clearTimeout(superLongPressTimer);
     clearTimeout(singleTapTimer);
+    hideLongPressRing();
     longPressStart = null;
     longPressTriggered = false;
   });
@@ -1383,27 +1477,18 @@ export function bindEvents() {
 
   /* ---- 全页面右键菜单 ---- */
   var menu = el.contextMenu;
+  var contextMenuTargetBlock = null;
+
   var menuButtons = {
-    ctxContinue: function () { generateNarrative("自然续写并推进当前场景。", "continue"); },
+    ctxReadFromHere: function () {
+      if (contextMenuTargetBlock) {
+        var index = Number(contextMenuTargetBlock.dataset.speechIndex);
+        if (Number.isFinite(index) && index >= 0) {
+          playChapterFromIndex(index);
+        }
+      }
+    },
     ctxSummarize: summarizeMemory,
-    ctxRewriteLast: function () {
-      var chapter = getChapter();
-      if (!chapter || state.generating) return;
-      var lastNarrative = chapter.segments.slice().reverse().find(function (s) { return s.type === "narrative"; });
-      if (!lastNarrative) return toast(el.toast, "没有可重写的正文");
-      rewriteFromSegment(lastNarrative.id);
-      generateNarrative("根据上文自然重写后续正文。", "rewrite");
-    },
-    ctxSaveBranch: saveBranch,
-    ctxToggleLibrary: function () {
-      var mobile = window.matchMedia("(max-width: 760px)").matches;
-      var open = mobile
-        ? !el.libraryPanel.classList.contains("open")
-        : document.body.classList.contains("library-collapsed");
-      setLibraryOpen(open);
-    },
-    ctxToggleControls: function () { setControlsOpen(!el.controlsPanel.classList.contains("open")); },
-    ctxToggleFocus: function () { document.body.classList.toggle("focus-mode"); },
     ctxReadSettings: function () {
       el.readerFontSize.value = settings.readerFontSize;
       el.readerLineHeight.value = settings.readerLineHeight;
@@ -1411,11 +1496,17 @@ export function bindEvents() {
       syncAll();
       el.readingSettingsDialog.showModal();
     },
-    ctxExport: exportStory,
-    ctxNewStory: function () { el.setupDialog.showModal(); },
   };
 
-  function showContextMenu(x, y) {
+  function showContextMenu(x, y, targetBlock) {
+    contextMenuTargetBlock = targetBlock || null;
+    
+    // Toggle "从这里朗读" (ctxReadFromHere) based on whether it was triggered on a segment
+    var readBtn = document.getElementById("ctxReadFromHere");
+    if (readBtn) {
+      readBtn.style.display = contextMenuTargetBlock ? "" : "none";
+    }
+
     hideContextMenu();
     var dw = document.documentElement;
     var w = dw.clientWidth;
@@ -1447,13 +1538,23 @@ export function bindEvents() {
     menu.classList.remove("open");
   }
 
-  // Desktop: custom menu on right-click, suppress browser default
+  // Desktop & Mobile contextmenu handling to suppress browser defaults
   document.addEventListener("contextmenu", function (event) {
-    if (window.matchMedia("(max-width: 760px)").matches) return; // let mobile keep long-press
-    // allow native on inputs/textarea
-    if (event.target.closest("input, textarea, [contenteditable]")) return;
-    event.preventDefault();
-    showContextMenu(event.clientX, event.clientY);
+    if (event.target.closest(".story-content") || event.target.closest(".graph-canvas")) {
+      event.preventDefault();
+      if (!window.matchMedia("(max-width: 760px)").matches) {
+        if (!event.target.closest("input, textarea, [contenteditable]")) {
+          var blockNode = event.target.closest(".speech-block");
+          if (!blockNode && event.target.closest(".story-content")) {
+            var segmentNode = findClosestSegment(event.clientX, event.clientY);
+            if (segmentNode) {
+              blockNode = segmentNode.querySelector(".speech-block");
+            }
+          }
+          showContextMenu(event.clientX, event.clientY, blockNode);
+        }
+      }
+    }
   });
 
   menu.addEventListener("click", function (event) {
