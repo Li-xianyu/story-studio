@@ -227,12 +227,12 @@
       </div>
 
 	      <details class="memory-card">
-	        <summary>故事摘要</summary>
+	        <summary><i data-lucide="book-open" style="width:15px;height:15px;vertical-align:-2px;margin-right:6px;opacity:0.8"></i>故事摘要</summary>
 	        <div class="memory-toolbar"><button data-memory="chapterSummaries">编辑</button></div>
 	        <div id="summaryMemory" class="memory-content">尚未整理。</div>
 	      </details>
 	      <details class="memory-card">
-	        <summary>人物关系</summary>
+	        <summary><i data-lucide="users" style="width:15px;height:15px;vertical-align:-2px;margin-right:6px;opacity:0.8"></i>人物关系</summary>
 	        <div class="memory-toolbar">
 	          <button id="openRelationGraphBtn" type="button" title="以关系图查看"><i data-lucide="share-2" style="width:13px;height:13px;vertical-align:-2px"></i> 关系图</button>
 	          <button data-memory="characters">编辑</button>
@@ -240,17 +240,17 @@
 	        <div id="charactersMemory" class="memory-content">尚未记录。</div>
 	      </details>
 	      <details class="memory-card">
-	        <summary>世界状态</summary>
+	        <summary><i data-lucide="globe" style="width:15px;height:15px;vertical-align:-2px;margin-right:6px;opacity:0.8"></i>世界状态</summary>
 	        <div class="memory-toolbar"><button data-memory="worldState">编辑</button></div>
 	        <div id="worldStateMemory" class="memory-content">尚未记录。</div>
 	      </details>
 	      <details class="memory-card">
-	        <summary>剧情伏笔</summary>
+	        <summary><i data-lucide="git-branch" style="width:15px;height:15px;vertical-align:-2px;margin-right:6px;opacity:0.8"></i>剧情伏笔</summary>
 	        <div class="memory-toolbar"><button data-memory="plotThreads">编辑</button></div>
 	        <div id="plotThreadsMemory" class="memory-content">尚未记录。</div>
 	      </details>
 	      <details class="memory-card">
-	        <summary>用户追加设定</summary>
+	        <summary><i data-lucide="pen-tool" style="width:15px;height:15px;vertical-align:-2px;margin-right:6px;opacity:0.8"></i>用户追加设定</summary>
 	        <div class="memory-toolbar"><button data-memory="lore">编辑</button></div>
 	        <div id="loreMemory" class="memory-content">尚未记录。</div>
 	      </details>
@@ -449,6 +449,22 @@
         </label>
       </div>
       <div class="modal-actions"><button type="button" class="quiet-btn" data-close-dialog="readingSettingsDialog">关闭</button></div>
+    </form>
+  </dialog>
+
+  <!-- 记忆整理进度弹窗 -->
+  <dialog id="memoryProgressDialog" class="modal">
+    <form method="dialog" style="display:flex; flex-direction:column; max-height:80vh; min-width: 320px;">
+      <div class="modal-head">
+        <div><strong>记忆整理进度</strong><small>系统正在提炼和更新设定</small></div>
+      </div>
+      <div style="flex:1; overflow-y:auto; padding: 8px 4px;">
+        <ul id="memoryProgressTimeline" class="vertical-timeline">
+        </ul>
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="memoryProgressCancelBtn" class="quiet-btn danger">取消整理</button>
+      </div>
     </form>
   </dialog>
 

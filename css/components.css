@@ -1,5 +1,5 @@
-/* ============================================================
-   浮光剧场 · Components
+﻿/* ============================================================
+   娴厜鍓у満 路 Components
    ============================================================ */
 
 /* === Buttons === */
@@ -296,7 +296,7 @@
   line-height: 1;
 }
 
-/* 记忆编辑器 AI 修改行 */
+/* 璁板繂缂栬緫鍣?AI 淇敼琛?*/
 .memory-ai-row {
   display: flex; gap: 8px; align-items: center;
   margin-top: 6px;
@@ -315,7 +315,7 @@
 .memory-ai-input:focus { border-color: var(--accent); }
 .memory-ai-input::placeholder { color: var(--text-tertiary); }
 
-/* --- 人物关系图弹窗 --- */
+/* --- 浜虹墿鍏崇郴鍥惧脊绐?--- */
 .relation-graph-modal {
   width: min(94vw, 860px);
   height: 90vh;
@@ -406,12 +406,12 @@
   color: var(--text-tertiary);
   letter-spacing: 0.02em;
 }
-/* 浅色主题下容器底色提亮 */
+/* 娴呰壊涓婚涓嬪鍣ㄥ簳鑹叉彁浜?*/
 [data-theme="light"] .relation-graph-container {
   background: rgba(242, 242, 247, 0.55);
 }
 
-/* 节点信息弹出小窗（浮在画布上） */
+/* 鑺傜偣淇℃伅寮瑰嚭灏忕獥锛堟诞鍦ㄧ敾甯冧笂锛?*/
 .rg-node-popup {
   position: absolute;
   z-index: 100;
@@ -924,3 +924,101 @@ label:has(custom-select) > custom-select {
 [data-theme="light"] .context-menu-item svg {
   color: rgba(0,0,0,.45);
 }
+
+/* ---- 垂直时间线 (Vertical Timeline) ---- */
+.vertical-timeline {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 10px 10px;
+  position: relative;
+}
+.vertical-timeline::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 7px;
+  width: 2px;
+  background-color: var(--border-color);
+}
+.vertical-timeline li {
+  position: relative;
+  padding-left: 26px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: var(--text-color);
+  line-height: 24px;
+}
+.vertical-timeline li:last-child {
+  margin-bottom: 0;
+}
+.vertical-timeline li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--bg-color);
+  border: 2px solid var(--border-color);
+  z-index: 1;
+  box-sizing: border-box;
+}
+.vertical-timeline li.active::before {
+  border-color: var(--primary-color);
+  background-color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+}
+.vertical-timeline li.completed::before {
+  border-color: var(--success-color, #10b981);
+  background-color: var(--success-color, #10b981);
+}
+.vertical-timeline li .step-title {
+  font-weight: 500;
+  color: var(--text-color);
+}
+.vertical-timeline li .step-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ---- 环形圆球 Spinner ---- */
+.dot-spinner {
+  width: 18px;
+  height: 18px;
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 8px;
+  animation: spin 2s linear infinite;
+}
+.dot-spinner span {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  left: 0;
+  top: 0;
+}
+.dot-spinner span::before {
+  content: "";
+  display: block;
+  width: 4px;
+  height: 4px;
+  background-color: var(--primary-color);
+  border-radius: 50%;
+  margin: 0 auto;
+}
+.dot-spinner span:nth-child(1) { transform: rotate(0deg); opacity: 1; }
+.dot-spinner span:nth-child(2) { transform: rotate(45deg); opacity: 0.8; }
+.dot-spinner span:nth-child(3) { transform: rotate(90deg); opacity: 0.6; }
+.dot-spinner span:nth-child(4) { transform: rotate(135deg); opacity: 0.4; }
+.dot-spinner span:nth-child(5) { transform: rotate(180deg); opacity: 0.2; }
+.dot-spinner span:nth-child(6) { transform: rotate(225deg); opacity: 0.1; }
+.dot-spinner span:nth-child(7) { transform: rotate(270deg); opacity: 0.05; }
+.dot-spinner span:nth-child(8) { transform: rotate(315deg); opacity: 0.02; }
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+

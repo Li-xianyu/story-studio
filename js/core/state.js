@@ -57,7 +57,7 @@ var ids = [
   "segmentEditDialog", "segmentEditor", "undoBar", "undoText",
   "rewriteChoiceDialog", "rewriteSourcePreview", "rewriteFreeBtn", "rewriteFromInputBtn",
   "deleteStoryDialog", "deleteStoryName", "confirmDeleteStoryBtn",
-  "libraryThemeBtn",
+  "libraryThemeBtn", "memoryProgressDialog", "memoryProgressTimeline", "memoryProgressCancelBtn",
   "readingSettingsBtn", "readingSettingsDialog",
   "readerFontSize", "readerLineHeight", "readerIndentToggle", "scrollToBottomBtn",
   "contextMenu"

@@ -595,6 +595,11 @@ function plainStoryText(story) {
   }).join("\n\n---\n\n");
 }
 
+function syncScrollToBottomBtn() {
+  var show = userScrolledAway;
+  el.scrollToBottomBtn.classList.toggle("hidden", !show);
+}
+
 export function bindEvents() {
   var pendingDeleteStoryId = "";
   var pendingRewriteSegmentId = "";
@@ -861,10 +866,7 @@ export function bindEvents() {
   el.readerViewport.addEventListener("pointercancel", function () {
     userIsTouching = false;
   });
-  function syncScrollToBottomBtn() {
-    var show = userScrolledAway && state.generating;
-    el.scrollToBottomBtn.classList.toggle("hidden", !show);
-  }
+
 	  el.scrollToBottomBtn.addEventListener("click", function () {
 	    userScrolledAway = false;
 	    var rv = el.readerViewport;
@@ -1008,6 +1010,16 @@ export function bindEvents() {
   el.sendBtn.addEventListener("click", submitComposer);
   el.stopBtn.addEventListener("click", stopGeneration);
 	  el.composerInput.addEventListener("input", syncComposerHeight);
+  el.composerInput.addEventListener("keydown", function (event) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      if (window.matchMedia("(hover: none) and (pointer: coarse)").matches || window.innerWidth <= 768) {
+        // Mobile: allow normal enter for newline
+        return;
+      }
+      event.preventDefault();
+      submitComposer();
+    }
+  });
   document.getElementById("quickContinueBtn").addEventListener("click", function () {
     generateNarrative("自然续写并推进当前场景。", "continue");
   });
@@ -1021,7 +1033,12 @@ export function bindEvents() {
     requestSegmentRewrite(segment.id);
   });
   document.getElementById("branchBtn").addEventListener("click", saveBranch);
-  document.getElementById("summarizeBtn").addEventListener("click", summarizeMemory);
+  document.getElementById("summarizeBtn").addEventListener("click", function() {
+    if (document.activeElement) document.activeElement.blur();
+    var menu = document.getElementById("composerActionMenu");
+    if (menu) menu.setAttribute("aria-hidden", "true");
+    summarizeMemory();
+  });
   var composerMenuBtn = document.getElementById("composerMenuBtn");
   var composerActionMenu = document.getElementById("composerActionMenu");
   function setComposerMenuOpen(open) {
@@ -1192,7 +1209,7 @@ export function bindEvents() {
 	        var sysMsg = "你是写作助手，帮助用户修改故事记忆。只输出修改后的内容，不加解释。禁止编造原文中没有的人名和细节。";
 	        var opts = { temperature: 0.4 };
 	        if (key === "characters") {
-	           prompt += "\n必须返回格式规范的 JSON 数组结构：[{\"source\": \"A\", \"target\": \"B\", \"relation\": \"关系(必须是2~4个字的简短词语，如主仆、死敌)\", \"mutual\": true}]。";
+	           prompt += "\n必须返回格式规范的 JSON 数组结构：[{\"source\": \"A\", \"target\": \"B\", \"relation\": \"关系(必须是2~4个字的简短词语，注意区分身份场合，军队/官场请用'上下级/属下'，不要滥用'主仆')\", \"mutual\": true}]。";
 	           sysMsg += "必须返回 JSON 格式。";
 	           opts.responseFormat = { type: "json_object" };
 	        }
@@ -1456,4 +1473,13 @@ export function bindEvents() {
   });
 
   el.readerViewport.addEventListener("scroll", function () { hideContextMenu(); }, { passive: true });
+
+  if (el.memoryProgressCancelBtn) {
+    el.memoryProgressCancelBtn.addEventListener("click", function () {
+      if (state.abortController) {
+        state.abortController.abort();
+      }
+      if (el.memoryProgressDialog) el.memoryProgressDialog.close();
+    });
+  }
 }
