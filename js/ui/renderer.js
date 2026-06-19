@@ -149,8 +149,8 @@ export function renderMemory() {
   // 人物关系：解析为易读格式
   var charsEl = document.getElementById("charactersMemory");
   if (charsEl) {
-    var raw = story.memory.characters || "";
-    if (raw.trim()) {
+    var raw = story.memory.characters;
+    if (raw && (Array.isArray(raw) || (typeof raw === "string" && raw.trim()))) {
       var parsed = parseRelationGraph(raw);
       if (parsed && parsed.nodes.length) {
         var nodeRelMap = {};
@@ -179,10 +179,25 @@ export function renderMemory() {
     }
   }
   // 其余单字段
-  var plainFields = ["worldConstants", "worldEvolution", "threads", "characterAttributes"];
-  plainFields.forEach(function (key) {
-    var target = document.getElementById(key + "Memory");
-    if (target) target.textContent = story.memory[key] || "尚未记录。";
+  var plainFields = [
+    { key: "worldState", fallbacks: ["worldConstants"] },
+    { key: "plotThreads", fallbacks: ["threads"] },
+    { key: "lore", fallbacks: [] }
+  ];
+  plainFields.forEach(function (field) {
+    var target = document.getElementById(field.key + "Memory");
+    if (target) {
+      var val = story.memory[field.key];
+      if (!val) {
+        for (var i = 0; i < field.fallbacks.length; i++) {
+          if (story.memory[field.fallbacks[i]]) {
+            val = story.memory[field.fallbacks[i]];
+            break;
+          }
+        }
+      }
+      target.textContent = val || "尚未记录。";
+    }
   });
 }
 

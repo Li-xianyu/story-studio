@@ -29,6 +29,7 @@ export async function streamCompletion(messages, onDelta, options) {
   };
   if (!body.max_tokens) delete body.max_tokens;
   if (options && options.thinking) body.thinking = { type: options.thinking };
+  if (options && options.responseFormat) body.response_format = options.responseFormat;
   var response = await fetch(normalizedHost(settings.apiHost), {
     method: "POST",
     headers: { Authorization: "Bearer " + settings.apiKey, "Content-Type": "application/json" },

@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    浮光剧场 · Events
    ============================================================ */
 
@@ -1091,10 +1091,9 @@ export function bindEvents() {
 	      var labels = {
 	        chapterSummaries: "故事摘要",
 	        characters: "人物关系",
-	        worldConstants: "世界常数",
-	        worldEvolution: "世界演化",
-	        threads: "未解伏笔",
-	        characterAttributes: "主角属性"
+	        worldState: "世界状态",
+	        plotThreads: "剧情伏笔",
+	        lore: "用户追加设定"
 	      };
 	      el.memoryDialogTitle.textContent = "编辑" + (labels[state.memoryEditingKey] || state.memoryEditingKey);
 	      var val = getStory().memory[state.memoryEditingKey];
@@ -1110,6 +1109,8 @@ export function bindEvents() {
 	          lines.push("【" + t + "】\n" + (val[cid] || ""));
 	        });
 	        el.memoryEditor.value = lines.join("\n\n") || "";
+	      } else if (typeof val === "object" && val !== null) {
+	        el.memoryEditor.value = JSON.stringify(val, null, 2);
 	      } else {
 	        el.memoryEditor.value = val || "";
 	      }
@@ -1144,6 +1145,12 @@ export function bindEvents() {
 	      });
 	      if (curId) { parsed[curId] = curLines.join("\n").trim(); }
 	      story.memory.chapterSummaries = parsed;
+	    } else if (key === "characters") {
+	      try {
+	        story.memory[key] = JSON.parse(raw);
+	      } catch (e) {
+	        story.memory[key] = raw;
+	      }
 	    } else {
 	      story.memory[key] = raw;
 	    }
@@ -1156,7 +1163,7 @@ export function bindEvents() {
 	      if (!input) { toast(el.toast, "请先输入修改要求"); return; }
 	      var key = state.memoryEditingKey;
 	      var story = getStory();
-	      var labelMap = { characters: "人物关系", worldConstants: "世界观", worldEvolution: "世界演化", threads: "未解伏笔", characterAttributes: "主角属性", chapterSummaries: "故事摘要" };
+	      var labelMap = { characters: "人物关系", worldState: "世界状态", plotThreads: "剧情伏笔", chapterSummaries: "故事摘要", lore: "用户追加设定" };
 	      var label = labelMap[key] || key;
 	      var current = el.memoryEditor.value.trim();
 	      setBusy(el, true, "AI 正在修改" + label + "…");
@@ -1182,8 +1189,15 @@ export function bindEvents() {
 	          + "用户要求：" + input + "\n\n"
 	          + "请根据原文和用户要求，直接返回修改后的完整内容。不要添加解释，只输出修改后的文本。"
 	          + "必须忠实于原文信息，不要编造不存在的人物、名字或细节。如果原文中某角色没有名字只有描述（如'马尾女生''瘦高个'），请保持这些描述，不要自行起名。";
+	        var sysMsg = "你是写作助手，帮助用户修改故事记忆。只输出修改后的内容，不加解释。禁止编造原文中没有的人名和细节。";
+	        var opts = { temperature: 0.4 };
+	        if (key === "characters") {
+	           prompt += "\n必须返回格式规范的 JSON 数组结构：[{\"source\": \"A\", \"target\": \"B\", \"relation\": \"关系(必须是2~4个字的简短词语，如主仆、死敌)\", \"mutual\": true}]。";
+	           sysMsg += "必须返回 JSON 格式。";
+	           opts.responseFormat = { type: "json_object" };
+	        }
 	        var messages = [
-	          { role: "system", content: "你是写作助手，帮助用户修改故事记忆。只输出修改后的内容，不加解释。禁止编造原文中没有的人名和细节。" },
+	          { role: "system", content: sysMsg },
 	          { role: "user", content: prompt }
 	        ];
 	        var result = "";
@@ -1194,7 +1208,7 @@ export function bindEvents() {
 	          // 实时显示到 textarea
 	          el.memoryEditor.value = result;
 	          el.memoryEditor.scrollTop = el.memoryEditor.scrollHeight;
-	        }, { temperature: 0.4 });
+	        }, opts);
 	        result = result.replace(/^```[\s\S]*?\n?|```$/g, "").trim();
 	        if (result) {
 	          el.memoryEditor.value = result;
@@ -1217,6 +1231,12 @@ export function bindEvents() {
 	            });
 	            if (curId) { parsed[curId] = curLines.join("\n").trim(); }
 	            story.memory.chapterSummaries = parsed;
+	          } else if (key === "characters") {
+	            try {
+	              story.memory[key] = JSON.parse(result);
+	            } catch (e) {
+	              story.memory[key] = result;
+	            }
 	          } else {
 	            story.memory[key] = result;
 	          }

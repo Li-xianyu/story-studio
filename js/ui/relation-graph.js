@@ -40,14 +40,12 @@ function getThemeColors() {
 
 /* ---- 解析器 ---- */
 export function parseRelationGraph(text) {
-  if (!text || !text.trim()) return null;
-  var lines = text.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
-  if (!lines.length) return null;
+  if (!text) return null;
 
   var nodeMap = {}, descMap = {}, nodes = [], edges = [], nextId = 1, edgeSet = {};
 
   function nodeId(name, lineContext) {
-    name = name.trim();
+    name = String(name || "").trim();
     if (!name) return null;
     name = name.replace(/[（(][^）)]*[）)]?$/, "").trim();
     name = name.replace(/^["《「『]+|["》」』），,，。.：:\s]+$/g, "").trim();
@@ -62,14 +60,37 @@ export function parseRelationGraph(text) {
     return nodeMap[name];
   }
 
-  function addEdge(a, b, label) {
+  function addEdge(a, b, label, mutual) {
     if (!a || !b || a === b) return;
     if (!label) label = "关联";
     var key = a < b ? a + "|||" + b : b + "|||" + a;
     if (edgeSet[key]) return;
     edgeSet[key] = true;
-    edges.push({ from: a, to: b, label: label });
+    edges.push({ from: a, to: b, label: label, mutual: mutual });
   }
+
+  if (typeof text === "string" && text.trim().startsWith("[")) {
+    try {
+       var arr = JSON.parse(text);
+       if (Array.isArray(arr)) {
+         text = arr;
+       }
+    } catch(e) {}
+  }
+
+  if (Array.isArray(text)) {
+      text.forEach(function(item) {
+        if (item && item.source && item.target) {
+           addEdge(nodeId(item.source, item.relation), nodeId(item.target, item.relation), item.relation || "关联", item.mutual);
+        }
+      });
+      return { nodes: nodes, edges: edges };
+  }
+
+  var lines = typeof text === "string" ? text.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean) : [];
+  if (!lines.length) return null;
+
+  // Old node/edge logic kept for backwards compatibility parsing
 
   var reDash = /^(.+?)\s*(?:——+|—|–)\s*(.+?)\s*(?:——+|—|–)\s*(.+)$/;
   var reParen = /^(.+?)[（(](.+?)[）)](.+)$/;
@@ -243,18 +264,19 @@ export function openRelationGraph(story) {
             }
           },
 
-          edge: {
-            type: "line",
-            style: {
-              stroke: theme.edgeStroke,
-              lineWidth: 1.2,
-              endArrow: true,
-              labelText: function (d) { return d.data && d.data.label ? d.data.label : ""; },
-              labelFill: theme.edgeLabelFill,
-              labelFontSize: 12,
-              labelOffsetY: -6,
-              cursor: "default"
-            },
+            edge: {
+              type: "line",
+              style: {
+                stroke: theme.edgeStroke,
+                lineWidth: 1.2,
+                endArrow: true,
+                startArrow: function (d) { return d.data && d.data.mutual ? true : false; },
+                labelText: function (d) { return d.data && d.data.label ? d.data.label : ""; },
+                labelFill: theme.edgeLabelFill,
+                labelFontSize: 12,
+                labelOffsetY: -6,
+                cursor: "default"
+              },
             state: {
               active: { stroke: theme.activeStroke, lineWidth: 2, labelFill: theme.activeStroke, labelFontWeight: 500 },
               inactive: { opacity: 0.2 }
@@ -269,7 +291,14 @@ export function openRelationGraph(story) {
             animate: true,
             animationIterations: 50,
             iterations: 250,
-            link: { distance: 180, strength: 0.25, iterations: 1 },
+            link: { 
+              distance: function(edge) {
+                var txt = edge.data && edge.data.label ? edge.data.label : "";
+                return 120 + txt.length * 20;
+              },
+              strength: 0.25, 
+              iterations: 1 
+            },
             manyBody: { strength: -500, theta: 0.9 },
             center: { strength: 0.05 },
             collide: { radius: 50, strength: 0.7 },
