@@ -180,9 +180,9 @@ function bindLiquidGlass() {
   requestAnimationFrame(updateOverlap);
 }
 
-function init() {
+async function init() {
   cacheElements();
-  loadState();
+  await loadState();
   resetMemoryCardState();
   restoreDesktopPanelState();
   initCustomSelects();

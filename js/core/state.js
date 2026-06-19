@@ -3,6 +3,7 @@
    ============================================================ */
 
 import { safeParse, uid, nowIso } from "./utils.js";
+import { saveStory, deleteStory, getAllStories } from "./db.js";
 
 var STORAGE_KEY = "floating-story-studio-v1";
 var SETTINGS_KEY = "floating-story-studio-settings-v1";
@@ -135,8 +136,7 @@ export function touchStory() {
   saveState();
 }
 
-export function loadState() {
-  var saved = safeParse(localStorage.getItem(STORAGE_KEY), null);
+export async function loadState() {
   var savedSettings = safeParse(localStorage.getItem(SETTINGS_KEY), null);
   if (savedSettings) {
     Object.assign(settings, savedSettings);
@@ -144,60 +144,94 @@ export function loadState() {
     settings.ttsMaleVoice = savedSettings.ttsMaleVoice || "苏打";
     settings.ttsFemaleVoice = savedSettings.ttsFemaleVoice || "冰糖";
   }
-  if (saved && Array.isArray(saved.stories)) {
-    state.stories = saved.stories;
-    state.activeStoryId = saved.activeStoryId || "";
-    state.activeChapterId = saved.activeChapterId || "";
+
+  var activeIds = safeParse(localStorage.getItem("floating-story-studio-active-ids"), null);
+  var legacyData = safeParse(localStorage.getItem(STORAGE_KEY), null);
+
+  if (legacyData && Array.isArray(legacyData.stories)) {
+    console.log("检测到旧版 localStorage 数据，正在迁移至 IndexedDB...");
+    state.stories = legacyData.stories;
+    state.activeStoryId = legacyData.activeStoryId || "";
+    state.activeChapterId = legacyData.activeChapterId || "";
+
+    try {
+      for (var i = 0; i < state.stories.length; i++) {
+        await saveStory(state.stories[i]);
+      }
+      localStorage.removeItem(STORAGE_KEY);
+      console.log("数据迁移完成，已清理旧版 localStorage。");
+    } catch (err) {
+      console.error("数据迁移失败", err);
+    }
+  } else {
+    try {
+      state.stories = await getAllStories();
+      if (activeIds) {
+        state.activeStoryId = activeIds.activeStoryId || "";
+        state.activeChapterId = activeIds.activeChapterId || "";
+      }
+    } catch (err) {
+      console.error("加载故事失败", err);
+    }
   }
-	  var povMigrated = false;
-	  var memMigrated = false;
-	  state.stories.forEach(function (story) {
-	    var normalized = normalizePov(story.pov);
-	    if (story.pov !== normalized) {
-	      story.pov = normalized;
-	      povMigrated = true;
-	    }
-	    // 旧 memory 结构迁移：{summary, characters, world, threads, lore} → 新分章结构
-	    if (story.memory && typeof story.memory.summary === "string" && story.memory.summary) {
-	      story.memory.chapterSummaries = story.memory.chapterSummaries || {};
-	      // 尝试按已有章节分配，否则全放占位键
-	      var placeholderId = "__legacy__";
-	      story.memory.chapterSummaries[placeholderId] = story.memory.summary;
-	      delete story.memory.summary;
-	      memMigrated = true;
-	    }
-	    if (story.memory && typeof story.memory.world === "string") {
-	      if (!story.memory.worldConstants && !story.memory.worldEvolution) {
-	        story.memory.worldConstants = story.memory.world;
-	        story.memory.worldEvolution = "";
-	      }
-	      delete story.memory.world;
-	      memMigrated = true;
-	    }
-		    if (story.memory) {
-		      story.memory.chapterSummaries = story.memory.chapterSummaries || {};
-		      story.memory.worldConstants = story.memory.worldConstants || "";
-		      story.memory.worldEvolution = story.memory.worldEvolution || "";
-		      story.memory.characterAttributes = story.memory.characterAttributes || "";
-		      // 旧版遗留字段二次清理
-		      delete story.memory.summary;
-		      delete story.memory.world;
-		    }
-	  });
+
+  var povMigrated = false;
+  var memMigrated = false;
+  state.stories.forEach(function (story) {
+    var normalized = normalizePov(story.pov);
+    if (story.pov !== normalized) {
+      story.pov = normalized;
+      povMigrated = true;
+    }
+    // 旧 memory 结构迁移：{summary, characters, world, threads, lore} → 新分章结构
+    if (story.memory && typeof story.memory.summary === "string" && story.memory.summary) {
+      story.memory.chapterSummaries = story.memory.chapterSummaries || {};
+      // 尝试按已有章节分配，否则全放占位键
+      var placeholderId = "__legacy__";
+      story.memory.chapterSummaries[placeholderId] = story.memory.summary;
+      delete story.memory.summary;
+      memMigrated = true;
+    }
+    if (story.memory && typeof story.memory.world === "string") {
+      if (!story.memory.worldConstants && !story.memory.worldEvolution) {
+        story.memory.worldConstants = story.memory.world;
+        story.memory.worldEvolution = "";
+      }
+      delete story.memory.world;
+      memMigrated = true;
+    }
+    if (story.memory) {
+      story.memory.chapterSummaries = story.memory.chapterSummaries || {};
+      story.memory.worldConstants = story.memory.worldConstants || "";
+      story.memory.worldEvolution = story.memory.worldEvolution || "";
+      story.memory.characterAttributes = story.memory.characterAttributes || "";
+      // 旧版遗留字段二次清理
+      delete story.memory.summary;
+      delete story.memory.world;
+    }
+  });
+
   var storyCountBeforeMigration = state.stories.length;
   state.stories = state.stories.filter(function (story) {
     return !(story.title === "我的第一部故事" && isPristineStory(story));
   });
   ensureActiveSelection();
-	  if (state.stories.length !== storyCountBeforeMigration || povMigrated || memMigrated) saveState();
+  if (state.stories.length !== storyCountBeforeMigration || povMigrated || memMigrated) {
+    saveState();
+  }
 }
 
 export function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({
-    stories: state.stories,
+  localStorage.setItem("floating-story-studio-active-ids", JSON.stringify({
     activeStoryId: state.activeStoryId,
     activeChapterId: state.activeChapterId,
   }));
+  var activeStory = getStory();
+  if (activeStory) {
+    saveStory(activeStory).catch(function (err) {
+      console.error("保存故事到 IndexedDB 失败", err);
+    });
+  }
 }
 
 export function saveSettings() {

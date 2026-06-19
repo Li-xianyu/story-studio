@@ -3,6 +3,7 @@
    ============================================================ */
 
 import { state, el, getStory, getChapter, touchStory, saveState, ensureActiveSelection } from "../core/state.js";
+import { deleteStory as dbDeleteStory } from "../core/db.js";
 import { uid, nowIso, toast } from "../core/utils.js";
 import { renderAll, renderChapterList, renderBranches, renderStory } from "../ui/renderer.js";
 import { createUndoSnapshot } from "../ui/dialogs.js";
@@ -39,9 +40,12 @@ export function deleteStory(storyId) {
     state.activeChapterId = nextStory && nextStory.chapters[0] ? nextStory.chapters[0].id : "";
   }
   ensureActiveSelection();
+  dbDeleteStory(storyId).catch(function (err) {
+    console.error("从 IndexedDB 删除故事失败:", err);
+  });
   saveState();
   renderAll();
-  toast(el.toast, "\u6545\u4e8b\u5df2\u5220\u9664");
+  toast(el.toast, "故事已删除");
 }
 
 export function renameChapter(chapterId, name) {
