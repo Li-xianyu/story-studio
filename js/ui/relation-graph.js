@@ -198,192 +198,218 @@ export function openRelationGraph(story) {
 
   dialog.showModal();
 
-  requestAnimationFrame(function () {
-    requestAnimationFrame(function () {
-      try {
-        var Graph = window.G6.Graph;
+  // 延迟 250ms 初始化，等待弹窗缩放与位置动画彻底结束，防止 G6 缓存错误的容器 clientOffset 导致移动端触控和拖拽坐标跳跃
+  setTimeout(function () {
+    if (!dialog.open) return;
+    try {
+      var Graph = window.G6.Graph;
 
-        graphInstance = new Graph({
-          container: container,
-          width: container.clientWidth,
-          height: container.clientHeight,
-          autoFit: "view",
-          data: data,
+      destroyGraph();
 
-          node: {
-            type: "rect",
-            style: function (d) {
-              var proto = d.data && d.data.isProtagonist;
-              var label = (d.data && d.data.label) || d.id || "";
-              var w = Math.max(56, label.length * 14 + 24);
-              return {
-                size: [w, 34],
-                radius: 17,
-                fill: proto ? theme.protoFill : theme.nodeFill,
-                stroke: proto ? theme.protoStroke : theme.nodeStroke,
-                lineWidth: proto ? 1.8 : 1.2,
-                labelText: (d.data && d.data.label) || d.id,
-                labelFill: theme.labelFill,
-                labelFontSize: 14,
-                labelFontWeight: proto ? 600 : 400,
-                labelPlacement: "center",
-                cursor: "pointer",
-                // 徽章
-                badges: proto ? [{
-                  text: "主角",
-                  placement: "right-top",
-                  fill: "#fff",
-                  backgroundFill: theme.activeStroke,
-                  padding: [1, 6],
-                  backgroundRadius: 8
-                }] : [],
-                badgeFontSize: 8,
-                // 阴影
-                shadowBlur: 6,
-                shadowColor: "rgba(0,0,0,0.06)",
-                shadowOffsetY: 2,
-              };
+      var w = container.clientWidth || 400;
+      var h = container.clientHeight || 400;
+
+      graphInstance = new Graph({
+        container: container,
+        width: w,
+        height: h,
+        autoFit: "view",
+        data: data,
+
+        node: {
+          type: "rect",
+          style: function (d) {
+            var proto = d.data && d.data.isProtagonist;
+            var label = (d.data && d.data.label) || d.id || "";
+            var w = Math.max(56, label.length * 14 + 24);
+            return {
+              size: [w, 34],
+              radius: 17,
+              fill: proto ? theme.protoFill : theme.nodeFill,
+              stroke: proto ? theme.protoStroke : theme.nodeStroke,
+              lineWidth: proto ? 1.8 : 1.2,
+              labelText: (d.data && d.data.label) || d.id,
+              labelFill: theme.labelFill,
+              labelFontSize: 14,
+              labelFontWeight: proto ? 600 : 400,
+              labelPlacement: "center",
+              cursor: "pointer",
+              // 徽章
+              badges: proto ? [{
+                text: "主角",
+                placement: "right-top",
+                fill: "#fff",
+                backgroundFill: theme.activeStroke,
+                padding: [1, 6],
+                backgroundRadius: 8
+              }] : [],
+              badgeFontSize: 8,
+              // 阴影
+              shadowBlur: 6,
+              shadowColor: "rgba(0,0,0,0.06)",
+              shadowOffsetY: 2,
+            };
+          },
+          state: {
+            selected: {
+              stroke: theme.activeStroke,
+              lineWidth: 2.5,
+              shadowBlur: 12,
+              shadowColor: "rgba(59,130,246,0.18)"
             },
-            state: {
-              selected: {
-                stroke: theme.activeStroke,
-                lineWidth: 2.5,
-                shadowBlur: 12,
-                shadowColor: "rgba(59,130,246,0.18)"
-              },
-              active: {
-                stroke: theme.activeStroke,
-                lineWidth: 2
-              },
-              inactive: {
-                opacity: 0.25
+            active: {
+              stroke: theme.activeStroke,
+              lineWidth: 2
+            },
+            inactive: {
+              opacity: 0.25
+            }
+          },
+          animation: {
+            update: [{ fields: ["x", "y"], duration: 600, easing: "easeInOutCubic" }]
+          }
+        },
+
+        edge: {
+          type: "line",
+          style: {
+            stroke: theme.edgeStroke,
+            lineWidth: 1.2,
+            endArrow: true,
+            startArrow: function (d) { return d.data && d.data.mutual ? true : false; },
+            labelText: function (d) { return d.data && d.data.label ? d.data.label : ""; },
+            labelFill: theme.edgeLabelFill,
+            labelFontSize: 12,
+            labelOffsetY: -6,
+            cursor: "default"
+          },
+          state: {
+            active: { stroke: theme.activeStroke, lineWidth: 2, labelFill: theme.activeStroke, labelFontWeight: 500 },
+            inactive: { opacity: 0.2 }
+          },
+          animation: {
+            update: [{ fields: ["sourceNode", "targetNode"], duration: 600, easing: "easeInOutCubic" }]
+          }
+        },
+
+        layout: {
+          type: "d3-force",
+          animate: true,
+          animationIterations: 50,
+          iterations: 250,
+          link: { 
+            distance: function(edge) {
+              var txt = edge.data && edge.data.label ? edge.data.label : "";
+              return 120 + txt.length * 20;
+            },
+            strength: 0.25, 
+            iterations: 1 
+          },
+          manyBody: { strength: -500, theta: 0.9 },
+          center: { strength: 0.05 },
+          collide: { radius: 50, strength: 0.7 },
+          alpha: 0.8,
+          alphaDecay: 0.018,
+          alphaMin: 0.001,
+          velocityDecay: 0.4
+        },
+
+        behaviors: [
+          "drag-canvas",
+          {
+            type: "zoom-canvas",
+            trigger: ["wheel", "pinch"],
+            sensitivity: 0.8
+          },
+          {
+            type: "drag-element-force",
+            animate: true
+          },
+          {
+            type: "hover-activate",
+            degree: 1,
+            direction: "both",
+            animation: true,
+            enable: function (e) { return e.targetType === "node"; }
+          },
+          {
+            type: "click-select",
+            degree: 1,
+            direction: "both",
+            state: "selected"
+          }
+        ],
+
+        plugins: [
+          // Tooltip 悬停提示（节点名称 + 关系数）
+          {
+            type: "tooltip",
+            key: "node-tooltip",
+            trigger: "hover",
+            position: "top-right",
+            offset: [10, 0],
+            enable: function (e) { return e.targetType === "node"; },
+            getContent: function (evt, items) {
+              var item = items[0];
+              if (!item || !item.data) return "";
+              var proto = item.data.isProtagonist ? ' <span style="color:#3b82f6;font-size:10px;">●主角</span>' : "";
+              return '<div style="font-weight:600;color:' + theme.labelFill + ';">' +
+                escapeHtml(item.data.label || item.id) + proto + '</div>';
+            },
+            style: {
+              ".tooltip": {
+                background: "var(--bg-elevated, #1c1c1e)",
+                border: "1px solid var(--glass-border-strong, rgba(255,255,255,0.15))",
+                borderRadius: "10px",
+                padding: "6px 12px",
+                fontSize: "13px",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
+                pointerEvents: "none"
               }
-            },
-            animation: {
-              update: [{ fields: ["x", "y"], duration: 600, easing: "easeInOutCubic" }]
             }
-          },
+          }
+        ]
 
-            edge: {
-              type: "line",
-              style: {
-                stroke: theme.edgeStroke,
-                lineWidth: 1.2,
-                endArrow: true,
-                startArrow: function (d) { return d.data && d.data.mutual ? true : false; },
-                labelText: function (d) { return d.data && d.data.label ? d.data.label : ""; },
-                labelFill: theme.edgeLabelFill,
-                labelFontSize: 12,
-                labelOffsetY: -6,
-                cursor: "default"
-              },
-            state: {
-              active: { stroke: theme.activeStroke, lineWidth: 2, labelFill: theme.activeStroke, labelFontWeight: 500 },
-              inactive: { opacity: 0.2 }
-            },
-            animation: {
-              update: [{ fields: ["sourceNode", "targetNode"], duration: 600, easing: "easeInOutCubic" }]
+      });
+
+      graphInstance.render();
+
+      // 绑定容器大小自适应侦听器，同时解决屏幕旋转、键盘弹出或弹窗最终阶段渲染时的画布位置自适应
+      if (window.ResizeObserver) {
+        graphResizeObserver = new ResizeObserver(function (entries) {
+          if (!graphInstance || graphInstance.destroyed) return;
+          var entry = entries[0];
+          if (entry) {
+            var width = entry.contentRect.width;
+            var height = entry.contentRect.height;
+            if (width > 0 && height > 0) {
+              graphInstance.setSize(width, height);
+              graphInstance.fitView();
             }
-          },
-
-          layout: {
-            type: "d3-force",
-            animate: true,
-            animationIterations: 50,
-            iterations: 250,
-            link: { 
-              distance: function(edge) {
-                var txt = edge.data && edge.data.label ? edge.data.label : "";
-                return 120 + txt.length * 20;
-              },
-              strength: 0.25, 
-              iterations: 1 
-            },
-            manyBody: { strength: -500, theta: 0.9 },
-            center: { strength: 0.05 },
-            collide: { radius: 50, strength: 0.7 },
-            alpha: 0.8,
-            alphaDecay: 0.018,
-            alphaMin: 0.001,
-            velocityDecay: 0.4
-          },
-
-          behaviors: [
-            "drag-canvas",
-            "zoom-canvas",
-            {
-              type: "drag-element-force",
-              animate: true
-            },
-            {
-              type: "hover-activate",
-              degree: 1,
-              direction: "both",
-              animation: true,
-              enable: function (e) { return e.targetType === "node"; }
-            },
-            {
-              type: "click-select",
-              degree: 1,
-              direction: "both",
-              state: "selected"
-            }
-          ],
-
-          plugins: [
-            // Tooltip 悬停提示（节点名称 + 关系数）
-            {
-              type: "tooltip",
-              key: "node-tooltip",
-              trigger: "hover",
-              position: "top-right",
-              offset: [10, 0],
-              enable: function (e) { return e.targetType === "node"; },
-              getContent: function (evt, items) {
-                var item = items[0];
-                if (!item || !item.data) return "";
-                var proto = item.data.isProtagonist ? ' <span style="color:#3b82f6;font-size:10px;">●主角</span>' : "";
-                return '<div style="font-weight:600;color:' + theme.labelFill + ';">' +
-                  escapeHtml(item.data.label || item.id) + proto + '</div>';
-              },
-              style: {
-                ".tooltip": {
-                  background: "var(--bg-elevated, #1c1c1e)",
-                  border: "1px solid var(--glass-border-strong, rgba(255,255,255,0.15))",
-                  borderRadius: "10px",
-                  padding: "6px 12px",
-                  fontSize: "13px",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
-                  pointerEvents: "none"
-                }
-              }
-            }
-          ]
-
+          }
         });
-
-        graphInstance.render();
-
-        // 点击节点 → 显示详情弹窗
-        graphInstance.on("node:click", function (evt) {
-          showNodeDetailPopup(evt.target.id);
-        });
-
-        // 点击画布空白 → 关闭详情
-        graphInstance.on("canvas:click", function () {
-          hideNodeDetailPopup();
-        });
-
-      } catch (err) {
-        destroyGraph();
-        container.style.display = "none";
-        emptyBox.style.display = "";
-        emptyBox.innerHTML =
-          '<p class="rg-empty-title">关系图渲染失败</p>' +
-          '<p class="rg-empty-hint">' + escapeHtmlSafe(err && err.message ? err.message : String(err)) + '</p>';
+        graphResizeObserver.observe(container);
       }
-    });
-  });
+
+      // 点击节点 → 显示详情弹窗
+      graphInstance.on("node:click", function (evt) {
+        showNodeDetailPopup(evt.target.id);
+      });
+
+      // 点击画布空白 → 关闭详情
+      graphInstance.on("canvas:click", function () {
+        hideNodeDetailPopup();
+      });
+
+    } catch (err) {
+      destroyGraph();
+      container.style.display = "none";
+      emptyBox.style.display = "";
+      emptyBox.innerHTML =
+        '<p class="rg-empty-title">关系图渲染失败</p>' +
+        '<p class="rg-empty-hint">' + escapeHtmlSafe(err && err.message ? err.message : String(err)) + '</p>';
+    }
+  }, 250);
 }
 
 export function closeRelationGraph() {
