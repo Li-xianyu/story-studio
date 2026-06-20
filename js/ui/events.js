@@ -706,6 +706,21 @@ export function bindEvents() {
       if (dialog && dialog.open) dialog.close();
     });
   });
+
+  // 统一的弹窗外部点击关闭机制 (归一化复用)
+  document.querySelectorAll("dialog.modal").forEach(function(dialog) {
+    dialog.addEventListener("click", function(event) {
+      if (dialog.id === "memoryProgressDialog") return; // 进度条禁止点击外部关闭
+      if (event.target === dialog) {
+        var rect = dialog.getBoundingClientRect();
+        var isInDialog = (rect.top <= event.clientY && event.clientY <= rect.top + rect.height &&
+          rect.left <= event.clientX && event.clientX <= rect.left + rect.width);
+        if (!isInDialog && dialog.open) {
+          dialog.close();
+        }
+      }
+    });
+  });
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape") {
       resetInlineConfirm();

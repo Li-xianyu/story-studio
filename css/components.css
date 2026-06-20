@@ -245,9 +245,9 @@
   width: min(92vw, 560px); max-height: 88vh; overflow-y: auto;
   border: none; border-radius: var(--radius-xl);
   padding: 0; color: var(--text-primary);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.03), transparent),
-    rgba(12,12,15,.92);
+  background: rgba(12,12,15,.92);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
   box-shadow:
     0 24px 80px rgba(0,0,0,.55),
     0 6px 20px rgba(0,0,0,.24),
@@ -351,6 +351,46 @@
 }
 .relation-graph-container canvas {
   border-radius: var(--radius-lg);
+}
+.rg-reset-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.07);
+  border: 1px solid var(--glass-border-strong, rgba(255,255,255,0.12));
+  color: var(--text-secondary, rgba(255,255,255,0.6));
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: background 0.2s, color 0.2s;
+}
+.rg-reset-btn:hover {
+  background: rgba(255,255,255,0.14);
+  color: var(--text-primary, #fff);
+}
+.rg-reset-btn:active {
+  transform: scale(0.9);
+}
+.rg-reset-btn i {
+  width: 16px;
+  height: 16px;
+}
+[data-theme="light"] .rg-reset-btn {
+  background: rgba(0,0,0,0.04);
+  border-color: rgba(0,0,0,0.1);
+  color: var(--text-tertiary);
+}
+[data-theme="light"] .rg-reset-btn:hover {
+  background: rgba(0,0,0,0.08);
+  color: var(--text-primary);
 }
 .relation-graph-empty {
   position: relative;
@@ -692,9 +732,7 @@ custom-select > select { display: none; }
   display: none;
   border-radius: var(--radius-sm);
   border: 1px solid var(--glass-border);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.04), transparent),
-    rgba(16,16,20,.94);
+  background: rgba(16,16,20,.94);
   backdrop-filter: blur(32px) saturate(180%);
   -webkit-backdrop-filter: blur(32px) saturate(180%);
   box-shadow:

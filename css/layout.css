@@ -371,9 +371,9 @@
   display: flex; flex-direction: column;
   padding: 20px 0 0;
   border-radius: var(--radius-xl);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.03), transparent),
-    rgba(12,12,15,.92);
+  background: rgba(12,12,15,.92);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
   box-shadow:
     0 24px 80px rgba(0,0,0,.55),
     0 6px 20px rgba(0,0,0,.24),

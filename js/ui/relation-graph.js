@@ -5,7 +5,12 @@
    ============================================================ */
 
 var graphInstance = null;
+var graphInitTimeoutId = null;
+var graphIsRendering = false;
+var graphPendingDestroy = false;
 var currentParsed = null;
+var graphResizeObserver = null;
+var _resetBtn = null;
 
 /* ---- 主题颜色 ---- */
 function getThemeColors() {
@@ -125,9 +130,45 @@ export function parseRelationGraph(text) {
   return { nodes: nodes, edges: edges };
 }
 
+/* ---- 一键复位按钮 ---- */
+
+function ensureResetButton(container, graph) {
+  if (_resetBtn) return;
+  _resetBtn = document.createElement("button");
+  _resetBtn.className = "rg-reset-btn";
+  _resetBtn.title = "恢复默认视角";
+  _resetBtn.setAttribute("aria-label", "恢复默认视角");
+  _resetBtn.innerHTML = '<i data-lucide="crosshair"></i>';
+  _resetBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (!graph || graph.destroyed) return;
+    try {
+      graph.fitView();
+    } catch (err) {}
+  });
+  container.appendChild(_resetBtn);
+  if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+}
+
 /* ---- 打开/关闭 ---- */
 
 function destroyGraph() {
+  if (graphInitTimeoutId) {
+    clearTimeout(graphInitTimeoutId);
+    graphInitTimeoutId = null;
+  }
+  if (graphIsRendering) {
+    graphPendingDestroy = true;
+    return;
+  }
+  if (graphResizeObserver) {
+    try { graphResizeObserver.disconnect(); } catch (e) {}
+    graphResizeObserver = null;
+  }
+  if (_resetBtn) {
+    try { _resetBtn.remove(); } catch (e) {}
+    _resetBtn = null;
+  }
   if (graphInstance) {
     try { graphInstance.destroy(); } catch (e) {}
     graphInstance = null;
@@ -198,13 +239,25 @@ export function openRelationGraph(story) {
 
   dialog.showModal();
 
-  // 延迟 250ms 初始化，等待弹窗缩放与位置动画彻底结束，防止 G6 缓存错误的容器 clientOffset 导致移动端触控和拖拽坐标跳跃
-  setTimeout(function () {
+  if (graphInitTimeoutId) {
+    clearTimeout(graphInitTimeoutId);
+    graphInitTimeoutId = null;
+  }
+
+  // 延迟 350ms 初始化，等待弹窗缩放与位置动画彻底结束，防止 G6 缓存错误的容器 clientOffset 导致移动端触控和拖拽坐标跳跃
+  graphInitTimeoutId = setTimeout(function () {
+    graphInitTimeoutId = null;
     if (!dialog.open) return;
     try {
       var Graph = window.G6.Graph;
 
-      destroyGraph();
+      // 强制清理（即使正在渲染）
+      graphIsRendering = false;
+      graphPendingDestroy = false;
+      if (graphInstance) {
+        try { graphInstance.destroy(); } catch(e) {}
+        graphInstance = null;
+      }
 
       var w = container.clientWidth || 400;
       var h = container.clientHeight || 400;
@@ -214,6 +267,7 @@ export function openRelationGraph(story) {
         width: w,
         height: h,
         autoFit: "view",
+        zoomRange: [0.6, 2.5],
         data: data,
 
         node: {
@@ -244,10 +298,10 @@ export function openRelationGraph(story) {
                 backgroundRadius: 8
               }] : [],
               badgeFontSize: 8,
-              // 阴影
-              shadowBlur: 6,
-              shadowColor: "rgba(0,0,0,0.06)",
-              shadowOffsetY: 2,
+              // 阴影严重拖慢 Canvas 性能，默认状态下移除
+              // shadowBlur: 6,
+              // shadowColor: "rgba(0,0,0,0.06)",
+              // shadowOffsetY: 2,
             };
           },
           state: {
@@ -294,7 +348,7 @@ export function openRelationGraph(story) {
 
         layout: {
           type: "d3-force",
-          animate: true,
+          animate: false,
           animationIterations: 50,
           iterations: 250,
           link: { 
@@ -315,11 +369,23 @@ export function openRelationGraph(story) {
         },
 
         behaviors: [
-          "drag-canvas",
+          {
+            type: "drag-canvas",
+            enableOptimize: true
+          },
           {
             type: "zoom-canvas",
-            trigger: ["wheel", "pinch"],
-            sensitivity: 0.8
+            key: "zoom-wheel",
+            trigger: [],
+            sensitivity: 0.8,
+            enableOptimize: true
+          },
+          {
+            type: "zoom-canvas",
+            key: "zoom-pinch",
+            trigger: ["pinch"],
+            sensitivity: 0.8,
+            enableOptimize: true
           },
           {
             type: "drag-element-force",
@@ -372,23 +438,43 @@ export function openRelationGraph(story) {
 
       });
 
-      graphInstance.render();
+      // 添加复位按钮
+      ensureResetButton(container, graphInstance);
+
+      graphIsRendering = true;
+      graphInstance.render().then(function() {
+        graphIsRendering = false;
+        if (graphPendingDestroy) {
+          graphPendingDestroy = false;
+          destroyGraph();
+        }
+      }).catch(function(err) {
+        graphIsRendering = false;
+        if (graphPendingDestroy) {
+          graphPendingDestroy = false;
+          destroyGraph();
+        }
+      });
 
       // 绑定容器大小自适应侦听器，同时解决屏幕旋转、键盘弹出或弹窗最终阶段渲染时的画布位置自适应
       if (window.ResizeObserver) {
+        if (graphResizeObserver) {
+          try { graphResizeObserver.disconnect(); } catch (e) {}
+          graphResizeObserver = null;
+        }
         graphResizeObserver = new ResizeObserver(function (entries) {
-          if (!graphInstance || graphInstance.destroyed) return;
+          if (!graphInstance || graphInstance.destroyed || graphIsRendering) return;
           var entry = entries[0];
           if (entry) {
             var width = entry.contentRect.width;
             var height = entry.contentRect.height;
-            if (width > 0 && height > 0) {
-              graphInstance.setSize(width, height);
-              graphInstance.fitView();
+              if (width > 0 && height > 0) {
+                graphInstance.setSize(width, height);
+                // 移除 fitView() 以免移动端缩放时浏览器地址栏隐藏触发 resize，导致视图缩放被强行重置和跳跃
+              }
             }
-          }
-        });
-        graphResizeObserver.observe(container);
+          });
+          graphResizeObserver.observe(container);
       }
 
       // 点击节点 → 显示详情弹窗
@@ -409,7 +495,7 @@ export function openRelationGraph(story) {
         '<p class="rg-empty-title">关系图渲染失败</p>' +
         '<p class="rg-empty-hint">' + escapeHtmlSafe(err && err.message ? err.message : String(err)) + '</p>';
     }
-  }, 250);
+  }, 350);
 }
 
 export function closeRelationGraph() {
