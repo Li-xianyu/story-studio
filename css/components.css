@@ -347,6 +347,7 @@
   background: rgba(8, 8, 10, 0.55);
   border: 1px solid var(--glass-border);
   overflow: hidden;
+  touch-action: none;
 }
 .relation-graph-container canvas {
   border-radius: var(--radius-lg);
