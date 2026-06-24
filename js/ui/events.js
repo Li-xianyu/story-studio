@@ -954,9 +954,11 @@ export function bindEvents() {
     var backdrop = el.commentSheetBackdrop;
     if (!handle) return;
     var startY = 0, startH = 0, dragging = false;
+    var startTime = 0;
     var DISMISS_THRESHOLD = 100;
     var FULLSCREEN_THRESHOLD = 0.75;
     var DEFAULT_BLUR = 2;
+    var FLING_VELOCITY = 0.8; // px/ms, quick upward fling triggers fullscreen
     function applyBlur(blur) {
       backdrop.style.backdropFilter = "blur(" + blur + "px)";
       backdrop.style.webkitBackdropFilter = "blur(" + blur + "px)";
@@ -970,10 +972,12 @@ export function bindEvents() {
       sheet.style.height = newH + "px";
       sheet.style.maxHeight = newH + "px";
       sheet.style.transition = "none";
-      // During drag, only adjust blur when dragging down toward dismiss
-      if (delta < 0) {
-        var blurRatio = Math.min(Math.abs(delta) / DISMISS_THRESHOLD, 1);
-        applyBlur(DEFAULT_BLUR * (1 - blurRatio));
+      // During drag, keep blur constant at DEFAULT_BLUR
+      // Blur only changes toward 0 when very close to dismiss threshold
+      var ratio = newH / maxH;
+      if (ratio < 0.25) {
+        var dismissRatio = Math.min((0.25 - ratio) / 0.15, 1);
+        applyBlur(DEFAULT_BLUR * (1 - dismissRatio));
       } else {
         applyBlur(DEFAULT_BLUR);
       }
@@ -991,19 +995,29 @@ export function bindEvents() {
     function onEnd(e) {
       if (!dragging) return;
       dragging = false;
+      var clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+      var delta = startY - clientY;
+      var elapsed = Date.now() - startTime;
+      var velocity = elapsed > 0 ? delta / elapsed : 0;
       var currentH = sheet.offsetHeight;
       var maxH = window.innerHeight;
       var ratio = currentH / maxH;
       sheet.style.transition = "height .28s var(--ease-fluid)";
       backdrop.style.transition = "backdrop-filter .28s ease, -webkit-backdrop-filter .28s ease";
-      // Was in fullscreen and dragged down a bit → snap back to default
-      if (sheet.classList.contains("fullscreen") && ratio < 1) {
+      // Dragged low enough → dismiss (check this first)
+      if (ratio < 0.3) {
+        close();
+      // Quick upward fling → snap to fullscreen (even if not at 75%)
+      } else if (delta > 0 && velocity > FLING_VELOCITY) {
+        sheet.classList.add("fullscreen");
+        sheet.style.height = "100vh";
+        sheet.style.maxHeight = "100vh";
+        applyBlur(0);
+      // Was in fullscreen and dragged down → snap back to default
+      } else if (sheet.classList.contains("fullscreen") && ratio < 1) {
         sheet.classList.remove("fullscreen");
         resetStyles();
         applyBlur(DEFAULT_BLUR);
-      // Dragged low enough → dismiss
-      } else if (ratio < 0.3) {
-        close();
       // Dragged high enough → snap to fullscreen
       } else if (ratio >= FULLSCREEN_THRESHOLD) {
         sheet.classList.add("fullscreen");
@@ -1026,6 +1040,7 @@ export function bindEvents() {
       dragging = true;
       startY = e.touches ? e.touches[0].clientY : e.clientY;
       startH = sheet.offsetHeight;
+      startTime = Date.now();
       backdrop.style.transition = "none";
       document.addEventListener("mousemove", onMove);
       document.addEventListener("mouseup", onEnd);
@@ -1034,6 +1049,13 @@ export function bindEvents() {
     }
     handle.addEventListener("mousedown", onStart);
     handle.addEventListener("touchstart", onStart, { passive: false });
+    // Mobile: allow drag from header area
+    var header = sheet.querySelector(".comment-sheet-header");
+    if (header) {
+      header.style.cursor = "grab";
+      header.addEventListener("mousedown", onStart);
+      header.addEventListener("touchstart", onStart, { passive: false });
+    }
   })();
   el.commentGenSheetClose.addEventListener("click", closeCommentGenSheet);
   el.commentGenSheetBackdrop.addEventListener("click", closeCommentGenSheet);
@@ -1489,7 +1511,7 @@ export function bindEvents() {
       };
       el.composerInput.placeholder = placeholders[state.inputMode];
       var hints = {
-        role: "💡 你就是角色——AI 只写世界对你的反应，不会替你说话行动",
+        role: "你就是角色——AI 只写世界对你的反应，不会替你说话行动",
         director: "🎬 你是导演——AI 会自由推进剧情，包括替主角说话行动",
         lore: "📖 补充世界设定——写入长期记忆，不会直接生成正文",
       };

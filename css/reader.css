@@ -553,6 +553,15 @@ body.audio-panel-open .reader-viewport {
     visibility .32s,
     max-height .28s var(--ease-fluid);
 }
+@media (max-width: 600px) {
+  .comment-sheet {
+    width: 100%;
+    border-radius: 20px 20px 0 0;
+  }
+  .comment-sheet.fullscreen {
+    border-radius: 0;
+  }
+}
 .comment-sheet.open {
   transform: translate(-50%, 0);
   opacity: 1;
