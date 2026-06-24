@@ -605,6 +605,256 @@ function syncScrollToBottomBtn() {
   el.scrollToBottomBtn.classList.toggle("hidden", !show);
 }
 
+async function generateComments(chapterId, mode, amount) {
+  if (state.generating) return;
+  var story = getStory();
+  var chapter = chapterId
+    ? story.chapters.find(function (ch) { return ch.id === chapterId; })
+    : getChapter();
+  if (!story || !chapter || !chapter.segments.length) {
+    toast(el.toast, "还没有正文，先写点故事吧");
+    return;
+  }
+  var hasContent = chapter.segments.some(function (s) { return String(s.content || "").trim(); });
+  if (!hasContent) { toast(el.toast, "本章还没有内容"); return; }
+  var paragraphMap = [];
+  var contentLines = [];
+  var existingSummary = []; // for incremental prompt
+  var globalPIndex = 0;
+  chapter.segments.forEach(function(seg, segIdx) {
+    var paragraphs = (seg.content || "").split(/\n\s*\n+/).filter(Boolean);
+    paragraphs.forEach(function(p, pIdx) {
+      if (p.trim().length > 10) {
+        paragraphMap.push({ seg: seg, pIdx: pIdx });
+        contentLines.push("【段落" + globalPIndex + "】\n" + p.slice(0, 200));
+        // Track existing comments for incremental mode
+        var existingCount = (seg.paragraphComments && seg.paragraphComments[pIdx]) ? seg.paragraphComments[pIdx].length : 0;
+        if (existingCount > 0) {
+          existingSummary.push("段落" + globalPIndex + " → " + existingCount + "条评论");
+        }
+        globalPIndex++;
+      }
+    });
+  });
+  if (paragraphMap.length === 0) { toast(el.toast, "本章内容太少"); return; }
+
+  // For regenerate mode, clear existing comments first
+  if (mode === "regenerate") {
+    chapter.segments.forEach(function (seg) { seg.paragraphComments = {}; });
+  }
+
+  var content = contentLines.join("\n\n");
+  setBusy(el, true, "正在生成段评…");
+  state.generating = true;
+  try {
+    var existingInfo = existingSummary.length
+      ? "已有评论概况：\n" + existingSummary.join("\n") + "\n\n"
+      : "";
+    var incrementalInstruction = (mode === "incremental")
+      ? "【增量模式】请优先为【无评论】的段落生成评论（上面未列出的段落即为无评论）。\n" +
+        "对于已有评论的段落，可以补充1~2条新评论，但必须从全新角度切入，不要重复已有评论的观点和风格。\n"
+      : "";
+    // Amount config: [段落数, 每段评论数, maxTokens]
+    var amountConfig = {
+      few:   [3, "1~2", 1200],
+      medium: [4, "2~3", 1800],
+      many:  [5, "3~4", 2500]
+    };
+    var cfg = amountConfig[amount] || amountConfig.medium;
+    var maxParagraphs = cfg[0];
+    var reviewsPerParagraph = cfg[1];
+    var maxTokens = cfg[2];
+
+    var prompt = [
+      "你是一群真实的网文读者，请为以下小说章节" + (mode === "incremental" ? "继续" : "") + "生成段落评论。",
+      "",
+      "【输出格式】必须返回合法JSON，格式如下：",
+      '{"comments":[{"paragraphIndex":0,"reviews":[{"username":"夜雨听风","content":"这段打戏写得太燃了","likes":2847}]}]}',
+      "",
+      "【选段优先级】优先选择以下段落生成评论（按优先级排序）：",
+      "1. 战斗场面、动作描写精彩的段落",
+      "2. 细腻的心理描写、情感刻画的段落",
+      "3. 暧昧、情欲氛围的段落（注意尺度，点到为止）",
+      "4. 剧情反转、悬念设置的段落",
+      "5. 其他精彩段落",
+      "",
+      "【评论数量】每个段落生成 " + reviewsPerParagraph + " 条评论",
+      "",
+      "【用户名要求】像真实平台用户，不要用奇怪的名字。参考风格：",
+      "- 2-5个字的昵称，如：书荒患者、追更党、夜雨听风、摸鱼达人、老书虫",
+      "- 可以带数字但不要太多，如：小透明2号",
+      "- 不要用纯英文、纯数字或乱码",
+      "",
+      "【评论内容要求】",
+      "- 10~30字，口语化，像真人发言",
+      "- 风格多样：有吐槽的、有感动的、有分析的、有玩梗的",
+      "- 可以用网络用语：绝了、破防了、DNA动了、这波在大气层",
+      "- 点赞数随机100~9999，精彩的评论点赞多一些",
+      "",
+      "5. 只输出JSON，不要其他内容",
+      "",
+      existingInfo,
+      incrementalInstruction,
+      "以下是本章正文：",
+      content
+    ].filter(Boolean).join("\n");
+    var result = "";
+    await streamCompletion([
+      { role: "system", content: "你是互动小说平台的评论生成器。必须返回合法的JSON格式，包含comments数组。不要返回任何非JSON内容。" },
+      { role: "user", content: prompt }
+    ], function (delta) { result += delta; }, {
+
+      temperature: 0.9,
+      thinking: "disabled",
+      responseFormat: { type: "json_object" }
+    });
+    if (!result || !result.trim()) {
+      console.error("[段评生成] AI返回内容为空", { prompt: prompt.slice(0, 200) });
+      throw new Error("返回内容为空");
+    }
+    console.log("[段评生成] AI原始返回:", result);
+    // Clean result: remove markdown code blocks if present
+    var cleaned = result.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    // Try to extract JSON object from the result
+    var jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error("[段评生成] 未找到JSON对象", { cleaned: cleaned.slice(0, 500) });
+      throw new Error("未找到有效JSON");
+    }
+    var jsonStr = jsonMatch[0];
+    var parsed;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch (parseErr) {
+      console.warn("[段评生成] JSON解析失败，尝试修复", { error: parseErr.message, json: jsonStr.slice(0, 300) });
+      // Try to fix truncated JSON: close open brackets/braces
+      var fixed = jsonStr;
+      // Count unclosed brackets
+      var openBrackets = (fixed.match(/\[/g) || []).length - (fixed.match(/\]/g) || []).length;
+      var openBraces = (fixed.match(/\{/g) || []).length - (fixed.match(/\}/g) || []).length;
+      // Remove trailing incomplete element (find last comma or incomplete string)
+      fixed = fixed.replace(/,\s*$/, "").replace(/"[^"]*$/, "");
+      // Close arrays and objects
+      for (var i = 0; i < openBrackets; i++) fixed += "]";
+      for (var i = 0; i < openBraces; i++) fixed += "}";
+      console.log("[段评生成] 修复后的JSON:", fixed);
+      try {
+        parsed = JSON.parse(fixed);
+        console.log("[段评生成] 修复成功");
+      } catch (e) {
+        console.error("[段评生成] JSON修复失败", { error: e.message, fixed: fixed.slice(0, 500) });
+        throw new Error("JSON格式错误，请重试");
+      }
+    }
+    if (!parsed || !Array.isArray(parsed.comments)) {
+      console.error("[段评生成] 缺少comments数组", { parsed: parsed });
+      throw new Error("格式错误：缺少comments数组");
+    }
+    console.log("[段评生成] 解析成功，评论数:", parsed.comments.reduce(function(sum, g) { return sum + (g.reviews ? g.reviews.length : 0); }, 0));
+    // Ensure paragraphComments objects exist
+    chapter.segments.forEach(function (seg) {
+      if (!seg.paragraphComments) seg.paragraphComments = {};
+    });
+    parsed.comments.forEach(function (group) {
+      var mapping = paragraphMap[group.paragraphIndex];
+      if (mapping && Array.isArray(group.reviews)) {
+        if (!mapping.seg.paragraphComments) mapping.seg.paragraphComments = {};
+        var newReviews = group.reviews.map(function (r) {
+          return { username: r.username || "匿名", content: r.content || "", likes: r.likes || 0 };
+        });
+        if (mode === "incremental") {
+          // Append to existing
+          var existing = mapping.seg.paragraphComments[mapping.pIdx] || [];
+          mapping.seg.paragraphComments[mapping.pIdx] = existing.concat(newReviews);
+        } else {
+          mapping.seg.paragraphComments[mapping.pIdx] = newReviews;
+        }
+      }
+    });
+    touchStory();
+    renderAll();
+    if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+    var label = mode === "incremental" ? "段评已追加" : "段评已生成";
+    toast(el.toast, label);
+    el.generateCommentsBtn.classList.add("has-comments");
+  } catch (error) {
+    if (error.name !== "AbortError") toast(el.toast, "生成段评失败：" + error.message);
+  } finally {
+    state.abortController = null;
+    state.generating = false;
+    setBusy(el, false);
+  }
+}
+
+function openCommentGenSheet() {
+  var story = getStory();
+  if (!story || !story.chapters.length) return;
+  // Populate chapter selector
+  var select = el.commentGenChapter;
+  select.innerHTML = "";
+  story.chapters.forEach(function (ch) {
+    var opt = document.createElement("option");
+    opt.value = ch.id;
+    opt.textContent = ch.title || "未命名章节";
+    if (ch.id === state.activeChapterId) opt.selected = true;
+    select.appendChild(opt);
+  });
+  // Sync custom-select visuals
+  syncAll();
+  // Reset to incremental mode
+  document.querySelectorAll("#commentGenModeTabs button").forEach(function (btn) {
+    var inc = btn.dataset.genMode === "incremental";
+    btn.classList.toggle("active", inc);
+    btn.setAttribute("aria-selected", inc ? "true" : "false");
+  });
+  el.commentGenHint.textContent = "增量追加：保留已有段评，为无评论段落新增，也可为有评论段落补充";
+  el.commentGenSheetBackdrop.classList.add("open");
+  el.commentGenSheet.classList.add("open");
+}
+
+function closeCommentGenSheet() {
+  el.commentGenSheet.classList.remove("open");
+  el.commentGenSheetBackdrop.classList.remove("open");
+}
+
+async function startCommentGen() {
+  var activeBtn = el.commentGenModeTabs.querySelector("button.active");
+  var mode = activeBtn ? activeBtn.dataset.genMode : "incremental";
+  var activeAmountBtn = el.commentGenAmountTabs.querySelector("button.active");
+  var amount = activeAmountBtn ? activeAmountBtn.dataset.genAmount : "medium";
+  var chapterId = el.commentGenChapter.value;
+  closeCommentGenSheet();
+  await generateComments(chapterId, mode, amount);
+}
+
+function openCommentSheet(segmentId, pIndex) {
+  var chapter = getChapter();
+  var segment = chapter && chapter.segments.find(function (s) { return s.id === segmentId; });
+  if (!segment || !segment.paragraphComments || !segment.paragraphComments[pIndex]) return;
+  var comments = segment.paragraphComments[pIndex];
+  if (!comments.length) return;
+  el.commentSheetTitle.textContent = comments.length + " 条段评";
+  el.commentSheetBody.innerHTML = comments.map(function (c, i) {
+    var seed = (c.username || "user" + i);
+    var timeAgo = ["刚刚", "1分钟前", "3分钟前", "5分钟前", "12分钟前", "1小时前", "2小时前"][Math.floor(Math.random() * 7)];
+    return '<div class="comment-card">' +
+      '<img class="comment-avatar" src="https://api.dicebear.com/7.x/fun-emoji/svg?seed=' + encodeURIComponent(seed) + '" alt="avatar" onerror="this.style.background=\'#6366f1\';this.style.padding=\'8px\';this.alt=\'' + (c.username || "匿").slice(0,1) + '\'" />' +
+      '<div class="comment-info">' +
+        '<div class="comment-username">' + (c.username || "匿名") + '</div>' +
+        '<div class="comment-text">' + (c.content || "") + '</div>' +
+        '<div class="comment-meta"><span>' + timeAgo + '</span><span class="comment-likes"><i data-lucide="thumbs-up"></i>' + (c.likes || 0) + '</span></div>' +
+      '</div></div>';
+  }).join("");
+  el.commentSheetBackdrop.classList.add("open");
+  el.commentSheet.classList.add("open");
+  if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+}
+
+function closeCommentSheet() {
+  el.commentSheet.classList.remove("open");
+  el.commentSheetBackdrop.classList.remove("open");
+}
+
 export function bindEvents() {
   var pendingDeleteStoryId = "";
   var pendingRewriteSegmentId = "";
@@ -693,6 +943,130 @@ export function bindEvents() {
     setAudioPanelOpen(!el.playerBar.classList.contains("open"));
   });
   document.getElementById("audioPanelClose").addEventListener("click", function () { setAudioPanelOpen(false); });
+  el.generateCommentsBtn.addEventListener("click", openCommentGenSheet);
+  el.commentSheetClose.addEventListener("click", closeCommentSheet);
+  el.commentSheetBackdrop.addEventListener("click", closeCommentSheet);
+
+  // Comment sheet drag-to-resize
+  (function () {
+    var sheet = el.commentSheet;
+    var handle = sheet.querySelector(".comment-sheet-handle");
+    var backdrop = el.commentSheetBackdrop;
+    if (!handle) return;
+    var startY = 0, startH = 0, dragging = false;
+    var DISMISS_THRESHOLD = 100;
+    var FULLSCREEN_THRESHOLD = 0.75;
+    var DEFAULT_BLUR = 2;
+    function applyBlur(blur) {
+      backdrop.style.backdropFilter = "blur(" + blur + "px)";
+      backdrop.style.webkitBackdropFilter = "blur(" + blur + "px)";
+    }
+    function onMove(e) {
+      if (!dragging) return;
+      var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      var delta = startY - clientY;
+      var maxH = window.innerHeight;
+      var newH = Math.min(Math.max(startH + delta, 80), maxH);
+      sheet.style.height = newH + "px";
+      sheet.style.maxHeight = newH + "px";
+      sheet.style.transition = "none";
+      // During drag, only adjust blur when dragging down toward dismiss
+      if (delta < 0) {
+        var blurRatio = Math.min(Math.abs(delta) / DISMISS_THRESHOLD, 1);
+        applyBlur(DEFAULT_BLUR * (1 - blurRatio));
+      } else {
+        applyBlur(DEFAULT_BLUR);
+      }
+    }
+    function resetStyles() {
+      sheet.style.height = "";
+      sheet.style.maxHeight = "";
+    }
+    function close() {
+      sheet.classList.remove("open", "fullscreen");
+      backdrop.classList.remove("open");
+      resetStyles();
+      applyBlur("");
+    }
+    function onEnd(e) {
+      if (!dragging) return;
+      dragging = false;
+      var currentH = sheet.offsetHeight;
+      var maxH = window.innerHeight;
+      var ratio = currentH / maxH;
+      sheet.style.transition = "height .28s var(--ease-fluid)";
+      backdrop.style.transition = "backdrop-filter .28s ease, -webkit-backdrop-filter .28s ease";
+      // Was in fullscreen and dragged down a bit → snap back to default
+      if (sheet.classList.contains("fullscreen") && ratio < 1) {
+        sheet.classList.remove("fullscreen");
+        resetStyles();
+        applyBlur(DEFAULT_BLUR);
+      // Dragged low enough → dismiss
+      } else if (ratio < 0.3) {
+        close();
+      // Dragged high enough → snap to fullscreen
+      } else if (ratio >= FULLSCREEN_THRESHOLD) {
+        sheet.classList.add("fullscreen");
+        sheet.style.height = "100vh";
+        sheet.style.maxHeight = "100vh";
+        applyBlur(0);
+      // Otherwise → snap to default
+      } else {
+        sheet.classList.remove("fullscreen");
+        resetStyles();
+        applyBlur(DEFAULT_BLUR);
+      }
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onEnd);
+      document.removeEventListener("touchmove", onMove);
+      document.removeEventListener("touchend", onEnd);
+    }
+    function onStart(e) {
+      e.preventDefault();
+      dragging = true;
+      startY = e.touches ? e.touches[0].clientY : e.clientY;
+      startH = sheet.offsetHeight;
+      backdrop.style.transition = "none";
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onEnd);
+      document.addEventListener("touchmove", onMove, { passive: false });
+      document.addEventListener("touchend", onEnd);
+    }
+    handle.addEventListener("mousedown", onStart);
+    handle.addEventListener("touchstart", onStart, { passive: false });
+  })();
+  el.commentGenSheetClose.addEventListener("click", closeCommentGenSheet);
+  el.commentGenSheetBackdrop.addEventListener("click", closeCommentGenSheet);
+  el.commentGenStartBtn.addEventListener("click", startCommentGen);
+  el.commentGenModeTabs.addEventListener("click", function (event) {
+    var btn = event.target.closest("[data-gen-mode]");
+    if (!btn) return;
+    el.commentGenModeTabs.querySelectorAll("button").forEach(function (b) {
+      var active = b === btn;
+      b.classList.toggle("active", active);
+      b.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    var inc = btn.dataset.genMode === "incremental";
+    el.commentGenHint.textContent = inc
+      ? "增量追加：保留已有段评，为无评论段落新增，也可为有评论段落补充"
+      : "重新生成：清空所有段评后重新生成";
+  });
+  el.commentGenAmountTabs.addEventListener("click", function (event) {
+    var btn = event.target.closest("[data-gen-amount]");
+    if (!btn) return;
+    el.commentGenAmountTabs.querySelectorAll("button").forEach(function (b) {
+      var active = b === btn;
+      b.classList.toggle("active", active);
+      b.setAttribute("aria-selected", active ? "true" : "false");
+    });
+  });
+  el.storyContent.addEventListener("click", function (event) {
+    var bubble = event.target.closest(".inline-comment-bubble");
+    if (bubble) {
+      event.stopPropagation();
+      openCommentSheet(bubble.dataset.segmentId, bubble.dataset.pIndex);
+    }
+  });
   el.mobileBackdrop.addEventListener("click", closeMobilePanels);
   document.querySelectorAll("[data-close-panel]").forEach(function (button) {
     button.addEventListener("click", function () {
@@ -1114,6 +1488,12 @@ export function bindEvents() {
         lore: "加入长期设定，例如：这个世界里，直呼死者姓名会被其听见。",
       };
       el.composerInput.placeholder = placeholders[state.inputMode];
+      var hints = {
+        role: "💡 你就是角色——AI 只写世界对你的反应，不会替你说话行动",
+        director: "🎬 你是导演——AI 会自由推进剧情，包括替主角说话行动",
+        lore: "📖 补充世界设定——写入长期记忆，不会直接生成正文",
+      };
+      if (el.composerModeHint) el.composerModeHint.textContent = hints[state.inputMode] || "";
     });
   });
   el.sendBtn.addEventListener("click", submitComposer);

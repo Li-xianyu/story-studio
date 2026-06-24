@@ -61,7 +61,9 @@ var ids = [
   "libraryThemeBtn", "memoryProgressDialog", "memoryProgressTimeline", "memoryProgressCancelBtn",
   "readingSettingsBtn", "readingSettingsDialog",
   "readerFontSize", "readerLineHeight", "readerIndentToggle", "scrollToBottomBtn",
-  "contextMenu"
+  "contextMenu",
+  "generateCommentsBtn", "commentSheet", "commentSheetBackdrop", "commentSheetBody", "commentSheetTitle", "commentSheetClose", "composerModeHint",
+  "commentGenSheet", "commentGenSheetBackdrop", "commentGenSheetClose", "commentGenChapter", "commentGenStartBtn", "commentGenModeTabs", "commentGenAmountTabs", "commentGenHint"
 ];
 
 export function cacheElements() {

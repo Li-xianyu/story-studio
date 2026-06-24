@@ -61,8 +61,12 @@ export function segmentHtml(segment, speechOffset, isLast) {
     '<button class="segment-action danger" data-segment-action="delete" title="\u5220\u9664\u6b64\u6bb5"><i data-lucide="trash-2"></i></button></div>';
   return '<div class="segment ' + (segment.streaming ? "streaming" : "") + '" data-segment-id="' + segment.id + '">' + actions +
     paragraphs.map(function (paragraph, index) {
+      var commentCount = (segment.paragraphComments && segment.paragraphComments[index]) ? segment.paragraphComments[index].length : 0;
+      var commentBubble = commentCount > 0
+        ? '<span class="inline-comment-bubble" data-segment-id="' + segment.id + '" data-p-index="' + index + '"><i data-lucide="message-circle"></i><span>' + commentCount + '</span></span>'
+        : '';
       return '<p class="speech-block" data-speech-index="' + (offset + index) + '">' +
-        paragraph.replace(/\n/g, "<br>") + "</p>";
+        paragraph.replace(/\n/g, "<br>") + commentBubble + "</p>";
     }).join("") + "</div>";
 }
 

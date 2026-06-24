@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    娴厜鍓у満 路 Reader
    ============================================================ */
 
@@ -62,6 +62,7 @@
 .header-actions { display: flex; gap: 2px; padding: 3px 4px; }
 .header-actions .icon-btn { color: var(--text-primary); }
 .header-actions .icon-btn svg { stroke-width: 2; }
+.header-actions .icon-btn.has-comments { color: var(--accent-text, #6eb6ff); }
 
 /* === Product Welcome === */
 .welcome-mode .reader-header,
@@ -441,4 +442,266 @@ body.audio-panel-open .reader-viewport {
 [data-theme="light"] .audio-float-btn:hover,
 [data-theme="light"] .audio-float-btn.active {
   color: #000;
+}
+
+/* === Inline Comment Bubble === */
+/* === Inline Comment Bubble === */
+.inline-comment-bubble {
+  display: inline;
+  white-space: nowrap;
+  margin-left: 6px;
+  padding: 0 2px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--text-tertiary, #8e8e93);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  pointer-events: auto;
+  vertical-align: middle;
+  transform: translateY(-1px);
+  transition: all .2s var(--ease-out);
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  letter-spacing: 0;
+  opacity: 0.85;
+}
+.inline-comment-bubble:hover {
+  color: var(--text-secondary, #ebebf5);
+  opacity: 1;
+}
+.inline-comment-bubble:active {
+  transform: translateY(-1px) scale(.95);
+}
+.inline-comment-bubble svg {
+  width: 14px !important;
+  height: 14px !important;
+  stroke-width: 2;
+  color: currentColor;
+  vertical-align: -2px;
+  display: inline-block;
+  margin: 0;
+  padding: 0;
+}
+.inline-comment-bubble span {
+  line-height: 1;
+  margin-left: -1px;
+}
+[data-theme="light"] .inline-comment-bubble {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: rgba(60,60,67,.55);
+}
+[data-theme="light"] .inline-comment-bubble:hover {
+  background: transparent;
+  color: rgba(0,0,0,.7);
+}
+[data-theme="light"] .inline-comment-bubble svg {
+  color: currentColor;
+}
+
+/* === Comment Sheet (Bottom Panel) === */
+.comment-sheet-backdrop {
+  position: fixed;
+  z-index: 199;
+  inset: 0;
+  background: rgba(0,0,0,.52);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .28s ease, visibility .28s;
+}
+.comment-sheet-backdrop.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.comment-sheet {
+  position: fixed;
+  z-index: 200;
+  /* Match composer: left:50% + translateX(-50%), same width formula */
+  left: 50%;
+  bottom: 0;
+  width: min(var(--reader-width), calc(100% - 40px));
+  max-height: 50vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 24px 24px 0 0;
+  background: rgba(16,16,20,.94);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  border: 1px solid rgba(255,255,255,.10);
+  border-bottom: none;
+  box-shadow:
+    0 -12px 48px rgba(0,0,0,.38),
+    0 -4px 16px rgba(0,0,0,.18),
+    inset 0 1px 0 rgba(255,255,255,.10);
+  /* Slide from bottom */
+  transform: translate(-50%, 100%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    transform .32s var(--ease-fluid),
+    opacity .24s ease,
+    visibility .32s,
+    max-height .28s var(--ease-fluid);
+}
+.comment-sheet.open {
+  transform: translate(-50%, 0);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+.comment-sheet.fullscreen {
+  border-radius: 0;
+  max-height: 100vh !important;
+  transform: translate(-50%, 0);
+}
+[data-theme="light"] .comment-sheet {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.58), rgba(255,255,255,.32)),
+    rgba(242,242,247,.96);
+  border-color: rgba(255,255,255,.72);
+  box-shadow:
+    0 -12px 48px rgba(15,23,42,.10),
+    0 -4px 14px rgba(15,23,42,.06),
+    inset 0 1px 0 rgba(255,255,255,.82);
+}
+[data-theme="light"] .comment-sheet-backdrop {
+  background: rgba(0,0,0,.18);
+}
+
+.comment-sheet-handle {
+  width: 100%;
+  height: 32px;
+  margin: 0;
+  flex-shrink: 0;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+.comment-sheet-handle::after {
+  content: "";
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,.18);
+}
+.comment-sheet-handle:active {
+  cursor: grabbing;
+}
+[data-theme="light"] .comment-sheet-handle::after {
+  background: rgba(60,60,67,.18);
+}
+
+
+.comment-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--separator-light);
+}
+.comment-sheet-header strong {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.comment-sheet-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px 18px 20px;
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Comment Cards */
+.comment-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.06);
+  transition: background .15s;
+}
+.comment-card:hover {
+  background: rgba(255,255,255,.08);
+}
+[data-theme="light"] .comment-card {
+  background: rgba(255,255,255,.42);
+  border-color: rgba(255,255,255,.68);
+}
+[data-theme="light"] .comment-card:hover {
+  background: rgba(255,255,255,.58);
+}
+
+.comment-avatar {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.comment-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.comment-username {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.comment-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.comment-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+.comment-likes {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.comment-likes svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2;
 }

@@ -95,6 +95,7 @@
         <div class="header-bubble header-actions">
           <button id="audioPanelToggle" class="icon-btn" title="朗读控制" aria-label="朗读控制" aria-expanded="false"><i data-lucide="headphones"></i></button>
           <button id="focusBtn" class="icon-btn" title="沉浸模式"><i data-lucide="maximize-2"></i></button>
+          <button id="generateCommentsBtn" class="icon-btn" title="生成段评" aria-label="生成段评"><i data-lucide="message-circle"></i></button>
           <button id="controlsBtn" class="icon-btn" title="故事控制" aria-label="故事控制"><i data-lucide="sliders-horizontal"></i></button>
         </div>
       </header>
@@ -152,6 +153,7 @@
             <i data-lucide="fast-forward"></i><span>继续写</span>
           </button>
         </div>
+        <div id="composerModeHint" class="composer-mode-hint">💡 你就是角色——AI 只写世界对你的反应，不会替你说话行动</div>
         <div class="composer-main">
           <textarea id="composerInput" rows="2" placeholder="以角色身份说话或行动，例如：我推开门，轻声问她是不是一直在等我。"></textarea>
           <button id="sendBtn" class="send-btn" title="发送" aria-label="发送"><i data-lucide="arrow-up"></i></button>
@@ -479,6 +481,57 @@
     <button id="ctxReadFromHere" class="context-menu-item"><i data-lucide="play"></i><span>从这里朗读</span></button>
     <button id="ctxSummarize" class="context-menu-item"><i data-lucide="brain"></i><span>整理记忆</span></button>
     <button id="ctxReadSettings" class="context-menu-item"><i data-lucide="book"></i><span>阅读设置</span></button>
+  </div>
+
+  <div id="commentSheetBackdrop" class="comment-sheet-backdrop"></div>
+  <div id="commentSheet" class="comment-sheet">
+    <div class="comment-sheet-handle"></div>
+    <div class="comment-sheet-header">
+      <strong id="commentSheetTitle">段评</strong>
+      <button id="commentSheetClose" class="icon-btn" type="button" title="关闭"><i data-lucide="x"></i></button>
+    </div>
+    <div id="commentSheetBody" class="comment-sheet-body"></div>
+  </div>
+
+  <!-- Comment Generation Sheet -->
+  <div id="commentGenSheetBackdrop" class="comment-sheet-backdrop"></div>
+  <div id="commentGenSheet" class="comment-sheet">
+    <div class="comment-sheet-handle"></div>
+    <div class="comment-sheet-header">
+      <strong>生成段评</strong>
+      <button id="commentGenSheetClose" class="icon-btn" type="button" title="关闭"><i data-lucide="x"></i></button>
+    </div>
+    <div class="comment-sheet-body">
+      <div style="display:grid;gap:18px">
+        <div>
+          <div style="font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:6px">目标章节</div>
+          <custom-select>
+            <select id="commentGenChapter"></select>
+          </custom-select>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:6px">生成方式</div>
+          <div class="settings-tabs" id="commentGenModeTabs" role="tablist">
+            <button type="button" class="active" data-gen-mode="incremental" aria-selected="true">增量追加</button>
+            <button type="button" data-gen-mode="regenerate" aria-selected="false">重新生成</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:6px">评论数量</div>
+          <div class="settings-tabs" id="commentGenAmountTabs" role="tablist">
+            <button type="button" data-gen-amount="few" aria-selected="false">少</button>
+            <button type="button" class="active" data-gen-amount="medium" aria-selected="true">中</button>
+            <button type="button" data-gen-amount="many" aria-selected="false">多</button>
+          </div>
+        </div>
+        <button id="commentGenStartBtn" class="primary-btn" style="width:100%;justify-content:center;gap:6px">
+          <i data-lucide="sparkles"></i><span>开始生成</span>
+        </button>
+        <p id="commentGenHint" style="font-size:12px;color:var(--text-tertiary);text-align:center;line-height:1.5;margin:0">
+          增量追加：保留已有段评，为无评论段落新增，也可为有评论段落补充
+        </p>
+      </div>
+    </div>
   </div>
 
   <script src="./vendor/lucide/0.468.0/lucide.min.js"></script>
