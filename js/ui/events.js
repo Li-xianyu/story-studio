@@ -955,6 +955,7 @@ export function bindEvents() {
     if (!handle) return;
     var startY = 0, startH = 0, dragging = false;
     var startTime = 0;
+    var wasFullscreen = false;
     var DISMISS_THRESHOLD = 100;
     var FULLSCREEN_THRESHOLD = 0.75;
     var DEFAULT_BLUR = 2;
@@ -984,6 +985,14 @@ export function bindEvents() {
       sheet.style.height = newH + "px";
       sheet.style.maxHeight = newH + "px";
       sheet.style.transition = "none";
+
+      // Restore rounded corners as soon as we drag down from full height
+      if (newH < maxH - 10) {
+        sheet.classList.remove("fullscreen");
+      } else {
+        sheet.classList.add("fullscreen");
+      }
+
       // During drag, keep blur constant at DEFAULT_BLUR
       var ratio = newH / maxH;
       if (ratio < 0.25) {
@@ -1035,7 +1044,7 @@ export function bindEvents() {
         sheet.style.maxHeight = "100vh";
         applyBlur(0);
       // Was in fullscreen and dragged down → snap back to default
-      } else if (sheet.classList.contains("fullscreen") && ratio < 1) {
+      } else if (wasFullscreen && ratio < 1) {
         sheet.classList.remove("fullscreen");
         resetStyles();
         applyBlur(DEFAULT_BLUR);
@@ -1062,6 +1071,7 @@ export function bindEvents() {
       startY = e.touches ? e.touches[0].clientY : e.clientY;
       startH = sheet.offsetHeight;
       startTime = Date.now();
+      wasFullscreen = sheet.classList.contains("fullscreen");
       backdrop.style.transition = "none";
       document.addEventListener("mousemove", onMove);
       document.addEventListener("mouseup", onEnd);
