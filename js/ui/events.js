@@ -1937,8 +1937,13 @@ export function bindEvents() {
   // 缩到 mobile 断点时自动隐藏右侧栏，展开时恢复
   var mobileMql = window.matchMedia("(max-width: 760px)");
   var wasControlsOpen = false;
-  if (mobileMql.matches) wasControlsOpen = el.controlsPanel.classList.contains("open");
+  var lastMobileMatches = mobileMql.matches;
+  if (lastMobileMatches) wasControlsOpen = el.controlsPanel.classList.contains("open");
+  
   mobileMql.addListener(function (ev) {
+    if (ev.matches === lastMobileMatches) return;
+    lastMobileMatches = ev.matches;
+    
     if (ev.matches) {
       wasControlsOpen = el.controlsPanel.classList.contains("open");
       el.controlsPanel.classList.remove("open");

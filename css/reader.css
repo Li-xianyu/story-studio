@@ -291,7 +291,7 @@ body.audio-panel-open .reader-viewport {
 
 /* === Empty State === */
 .empty-state {
-  width: min(calc(100% - var(--g-left, 0px) - var(--g-right, 0px)), 680px); min-height: 100%; margin: auto;
+  width: min(100%, 680px); min-height: 100%; margin: auto;
   display: grid; place-content: center; justify-items: start;
   transform: translateY(-2vh);
 }
