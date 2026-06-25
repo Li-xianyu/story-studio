@@ -31,6 +31,30 @@ export async function importFile(file) {
     story.id = uid("story");
     story.title = story.title || file.name.replace(/\.[^.]+$/, "");
     story.pov = normalizePov(story.pov);
+    // 重新生成所有 chapter.id 和 segment.id，避免 id 冲突导致数据互相覆盖
+    // paragraphComments 等 segment 上的字段原样保留，无需额外处理
+    var chapterIdMap = {};
+    story.chapters.forEach(function (chapter) {
+      var oldChapterId = chapter.id;
+      var newChapterId = uid("chapter");
+      chapterIdMap[oldChapterId] = newChapterId;
+      chapter.id = newChapterId;
+      if (Array.isArray(chapter.segments)) {
+        chapter.segments.forEach(function (segment) {
+          segment.id = uid("segment");
+        });
+      }
+    });
+    // 同步更新 memory.chapterSummaries 中以旧 chapter id 为键的摘要数据
+    if (story.memory && story.memory.chapterSummaries) {
+      var oldSummaries = story.memory.chapterSummaries;
+      var newSummaries = {};
+      Object.keys(oldSummaries).forEach(function (oldId) {
+        var newId = chapterIdMap[oldId] || oldId;
+        newSummaries[newId] = oldSummaries[oldId];
+      });
+      story.memory.chapterSummaries = newSummaries;
+    }
     state.stories.push(story);
     state.activeStoryId = story.id;
     state.activeChapterId = story.chapters[0].id;
