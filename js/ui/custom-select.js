@@ -74,8 +74,10 @@ var CustomSelect = (function () {
     this.dropdown.className = "cs-dropdown";
     this.dropdown.setAttribute("role", "listbox");
     this.rebuildOptions();
-    var container = this.el.closest("dialog") || document.body;
+    var dialog = this.el.closest("dialog");
+    var container = dialog || document.body;
     container.appendChild(this.dropdown);
+    this._inDialog = !!dialog;
     if (this.el.classList.contains("cs-compact")) {
       this.dropdown.classList.add("cs-dropdown-compact");
     }
@@ -136,20 +138,42 @@ var CustomSelect = (function () {
     var spaceBelow = viewportHeight - triggerRect.bottom - 8;
     var spaceAbove = triggerRect.top - 8;
 
-    dropdown.style.position = "fixed";
-    dropdown.style.left = triggerRect.left + "px";
-    dropdown.style.width = Math.max(triggerRect.width, 140) + "px";
+    if (this._inDialog) {
+      // Inside dialog: use absolute positioning relative to dialog
+      var dialog = this.el.closest("dialog");
+      var dialogRect = dialog.getBoundingClientRect();
+      dropdown.style.position = "absolute";
+      dropdown.style.left = (triggerRect.left - dialogRect.left + dialog.scrollLeft) + "px";
+      dropdown.style.width = Math.max(triggerRect.width, 140) + "px";
 
-    if (spaceBelow >= 180 || spaceBelow >= spaceAbove) {
-      dropdown.style.top = triggerRect.bottom + 6 + "px";
-      dropdown.style.bottom = "auto";
-      dropdown.style.maxHeight = Math.min(spaceBelow, 280) + "px";
-      dropdown.style.transformOrigin = "center top";
+      if (spaceBelow >= 180 || spaceBelow >= spaceAbove) {
+        dropdown.style.top = (triggerRect.top - dialogRect.top + dialog.scrollTop + triggerRect.height + 6) + "px";
+        dropdown.style.bottom = "auto";
+        dropdown.style.maxHeight = Math.min(spaceBelow, 280) + "px";
+        dropdown.style.transformOrigin = "center top";
+      } else {
+        dropdown.style.top = "auto";
+        dropdown.style.bottom = (dialogRect.bottom - triggerRect.top + 6) + "px";
+        dropdown.style.maxHeight = Math.min(spaceAbove, 280) + "px";
+        dropdown.style.transformOrigin = "center bottom";
+      }
     } else {
-      dropdown.style.top = "auto";
-      dropdown.style.bottom = viewportHeight - triggerRect.top + 6 + "px";
-      dropdown.style.maxHeight = Math.min(spaceAbove, 280) + "px";
-      dropdown.style.transformOrigin = "center bottom";
+      // Outside dialog: use fixed positioning
+      dropdown.style.position = "fixed";
+      dropdown.style.left = triggerRect.left + "px";
+      dropdown.style.width = Math.max(triggerRect.width, 140) + "px";
+
+      if (spaceBelow >= 180 || spaceBelow >= spaceAbove) {
+        dropdown.style.top = triggerRect.bottom + 6 + "px";
+        dropdown.style.bottom = "auto";
+        dropdown.style.maxHeight = Math.min(spaceBelow, 280) + "px";
+        dropdown.style.transformOrigin = "center top";
+      } else {
+        dropdown.style.top = "auto";
+        dropdown.style.bottom = viewportHeight - triggerRect.top + 6 + "px";
+        dropdown.style.maxHeight = Math.min(spaceAbove, 280) + "px";
+        dropdown.style.transformOrigin = "center bottom";
+      }
     }
   };
 

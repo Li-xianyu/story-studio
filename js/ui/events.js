@@ -967,13 +967,24 @@ export function bindEvents() {
       if (!dragging) return;
       var clientY = e.touches ? e.touches[0].clientY : e.clientY;
       var delta = startY - clientY;
+      // If drag started from body and body has scroll, handle scroll-to-top blocking
+      var body = sheet.querySelector(".comment-sheet-body");
+      if (body && body.scrollHeight > body.clientHeight) {
+        // If dragging down (delta < 0) and body is not at top, let body scroll instead
+        if (delta < 0 && body.scrollTop > 0) {
+          return;
+        }
+        // If at top and dragging down, prevent body scroll
+        if (delta < 0 && body.scrollTop <= 0) {
+          e.preventDefault();
+        }
+      }
       var maxH = window.innerHeight;
       var newH = Math.min(Math.max(startH + delta, 80), maxH);
       sheet.style.height = newH + "px";
       sheet.style.maxHeight = newH + "px";
       sheet.style.transition = "none";
       // During drag, keep blur constant at DEFAULT_BLUR
-      // Blur only changes toward 0 when very close to dismiss threshold
       var ratio = newH / maxH;
       if (ratio < 0.25) {
         var dismissRatio = Math.min((0.25 - ratio) / 0.15, 1);
@@ -987,10 +998,19 @@ export function bindEvents() {
       sheet.style.maxHeight = "";
     }
     function close() {
-      sheet.classList.remove("open", "fullscreen");
-      backdrop.classList.remove("open");
-      resetStyles();
-      applyBlur("");
+      sheet.style.transition = "height .3s var(--ease-ios), opacity .24s ease, visibility .3s";
+      sheet.style.height = "80px";
+      sheet.style.maxHeight = "80px";
+      backdrop.style.transition = "backdrop-filter .3s var(--ease-ios), -webkit-backdrop-filter .3s var(--ease-ios), opacity .24s ease";
+      applyBlur(0);
+      setTimeout(function () {
+        sheet.classList.remove("open", "fullscreen");
+        backdrop.classList.remove("open");
+        resetStyles();
+        sheet.style.transition = "";
+        backdrop.style.transition = "";
+        applyBlur("");
+      }, 300);
     }
     function onEnd(e) {
       if (!dragging) return;
@@ -1002,8 +1022,9 @@ export function bindEvents() {
       var currentH = sheet.offsetHeight;
       var maxH = window.innerHeight;
       var ratio = currentH / maxH;
-      sheet.style.transition = "height .28s var(--ease-fluid)";
-      backdrop.style.transition = "backdrop-filter .28s ease, -webkit-backdrop-filter .28s ease";
+      var easeTransition = "height .3s var(--ease-ios)";
+      sheet.style.transition = easeTransition;
+      backdrop.style.transition = "backdrop-filter .3s var(--ease-ios), -webkit-backdrop-filter .3s var(--ease-ios)";
       // Dragged low enough → dismiss (check this first)
       if (ratio < 0.3) {
         close();
@@ -1055,6 +1076,30 @@ export function bindEvents() {
       header.style.cursor = "grab";
       header.addEventListener("mousedown", onStart);
       header.addEventListener("touchstart", onStart, { passive: false });
+    }
+    // Mobile: allow drag from body when scrolled to top or no scrollbar
+    var body = sheet.querySelector(".comment-sheet-body");
+    if (body) {
+      function canDragFromBody(e) {
+        // If no scrollbar, always allow drag
+        if (body.scrollHeight <= body.clientHeight) return true;
+        // If scrolled to top and dragging down, allow drag
+        if (body.scrollTop <= 0) {
+          var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          var startY = e.touches ? e.touches[0].clientY : e.clientY;
+          // Store startY on the event target for later check in onMove
+          body._dragStartY = startY;
+          body._dragDirection = 0;
+          return true;
+        }
+        return false;
+      }
+      body.addEventListener("mousedown", function (e) {
+        if (canDragFromBody(e)) onStart(e);
+      });
+      body.addEventListener("touchstart", function (e) {
+        if (canDragFromBody(e)) onStart(e);
+      }, { passive: false });
     }
   })();
   el.commentGenSheetClose.addEventListener("click", closeCommentGenSheet);
