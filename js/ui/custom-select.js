@@ -4,6 +4,10 @@ var CustomSelect = (function () {
 
   function closeActive() {
     if (activeDropdown) {
+      var inst = activeDropdown._csInstance;
+      if (inst && inst._usePopover) {
+        try { activeDropdown.hidePopover(); } catch (_) {}
+      }
       activeDropdown.classList.remove("cs-open");
       activeDropdown = null;
     }
@@ -73,11 +77,17 @@ var CustomSelect = (function () {
     this.dropdown = document.createElement("div");
     this.dropdown.className = "cs-dropdown";
     this.dropdown.setAttribute("role", "listbox");
+    // Use Popover API if available: puts dropdown in the browser top layer,
+    // above <dialog> elements, with viewport-relative fixed positioning.
+    // Falls back to body append + high z-index for older browsers.
+    this._usePopover = typeof this.dropdown.showPopover === "function";
+    if (this._usePopover) {
+      this.dropdown.setAttribute("popover", "manual");
+    }
     this.rebuildOptions();
-    var dialog = this.el.closest("dialog");
-    var container = dialog || document.body;
-    container.appendChild(this.dropdown);
-    this._inDialog = !!dialog;
+    // Always append to body — never to dialog — so position:fixed is always
+    // relative to the viewport (backdrop-filter on dialog breaks fixed children).
+    document.body.appendChild(this.dropdown);
     if (this.el.classList.contains("cs-compact")) {
       this.dropdown.classList.add("cs-dropdown-compact");
     }
@@ -119,6 +129,9 @@ var CustomSelect = (function () {
 
   CustomSelect.prototype.open = function () {
     closeActive();
+    if (this._usePopover) {
+      try { this.dropdown.showPopover(); } catch (_) {}
+    }
     this.dropdown.classList.add("cs-open");
     this.trigger.setAttribute("aria-expanded", "true");
     activeDropdown = this.dropdown;
@@ -126,6 +139,9 @@ var CustomSelect = (function () {
   };
 
   CustomSelect.prototype.close = function () {
+    if (this._usePopover) {
+      try { this.dropdown.hidePopover(); } catch (_) {}
+    }
     this.dropdown.classList.remove("cs-open");
     this.trigger.setAttribute("aria-expanded", "false");
     if (activeDropdown === this.dropdown) activeDropdown = null;
@@ -138,42 +154,21 @@ var CustomSelect = (function () {
     var spaceBelow = viewportHeight - triggerRect.bottom - 8;
     var spaceAbove = triggerRect.top - 8;
 
-    if (this._inDialog) {
-      // Inside dialog: use absolute positioning relative to dialog
-      var dialog = this.el.closest("dialog");
-      var dialogRect = dialog.getBoundingClientRect();
-      dropdown.style.position = "absolute";
-      dropdown.style.left = (triggerRect.left - dialogRect.left + dialog.scrollLeft) + "px";
-      dropdown.style.width = Math.max(triggerRect.width, 140) + "px";
+    // Always fixed — works correctly whether in top-layer (popover) or body
+    dropdown.style.position = "fixed";
+    dropdown.style.left = triggerRect.left + "px";
+    dropdown.style.width = Math.max(triggerRect.width, 140) + "px";
 
-      if (spaceBelow >= 180 || spaceBelow >= spaceAbove) {
-        dropdown.style.top = (triggerRect.top - dialogRect.top + dialog.scrollTop + triggerRect.height + 6) + "px";
-        dropdown.style.bottom = "auto";
-        dropdown.style.maxHeight = Math.min(spaceBelow, 280) + "px";
-        dropdown.style.transformOrigin = "center top";
-      } else {
-        dropdown.style.top = "auto";
-        dropdown.style.bottom = (dialogRect.bottom - triggerRect.top + 6) + "px";
-        dropdown.style.maxHeight = Math.min(spaceAbove, 280) + "px";
-        dropdown.style.transformOrigin = "center bottom";
-      }
+    if (spaceBelow >= 180 || spaceBelow >= spaceAbove) {
+      dropdown.style.top = triggerRect.bottom + 6 + "px";
+      dropdown.style.bottom = "auto";
+      dropdown.style.maxHeight = Math.min(spaceBelow, 280) + "px";
+      dropdown.style.transformOrigin = "center top";
     } else {
-      // Outside dialog: use fixed positioning
-      dropdown.style.position = "fixed";
-      dropdown.style.left = triggerRect.left + "px";
-      dropdown.style.width = Math.max(triggerRect.width, 140) + "px";
-
-      if (spaceBelow >= 180 || spaceBelow >= spaceAbove) {
-        dropdown.style.top = triggerRect.bottom + 6 + "px";
-        dropdown.style.bottom = "auto";
-        dropdown.style.maxHeight = Math.min(spaceBelow, 280) + "px";
-        dropdown.style.transformOrigin = "center top";
-      } else {
-        dropdown.style.top = "auto";
-        dropdown.style.bottom = viewportHeight - triggerRect.top + 6 + "px";
-        dropdown.style.maxHeight = Math.min(spaceAbove, 280) + "px";
-        dropdown.style.transformOrigin = "center bottom";
-      }
+      dropdown.style.top = "auto";
+      dropdown.style.bottom = viewportHeight - triggerRect.top + 6 + "px";
+      dropdown.style.maxHeight = Math.min(spaceAbove, 280) + "px";
+      dropdown.style.transformOrigin = "center bottom";
     }
   };
 

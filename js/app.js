@@ -208,6 +208,23 @@ async function init() {
   if (window.lucide && typeof window.lucide.createIcons === "function") {
     window.lucide.createIcons();
   }
+
+  // ---- Dismiss splash screen ----
+  var splash = document.getElementById("appSplash");
+  var shell = document.querySelector(".app-shell");
+  if (shell) {
+    shell.style.transition = "opacity 0.3s cubic-bezier(0.25, 0.1, 0.25, 1)";
+  }
+  if (splash) {
+    splash.classList.add("hidden");
+    setTimeout(function () {
+      splash.remove();
+      document.body.classList.remove("app-loading");
+      if (shell) shell.style.transition = "";
+    }, 380);
+  } else {
+    document.body.classList.remove("app-loading");
+  }
 }
 
 bindPwaInstall();

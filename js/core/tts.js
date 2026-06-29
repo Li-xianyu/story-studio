@@ -402,10 +402,7 @@ export async function playSpeechChunk(session) {
   refreshSpeechProgress();
 
   // Preload nearby chunks in both directions
-  preloadChunk(index - 2);
-  preloadChunk(index - 1);
-  preloadChunk(index + 1);
-  preloadChunk(index + 2);
+  [-2, -1, 1, 2].forEach(i => preloadChunk(index + i));
 
   try {
     var blob = await getCachedAudio(state.tts.chunks[index], state.tts.chunkVoices[index] || "n");

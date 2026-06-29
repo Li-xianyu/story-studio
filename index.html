@@ -42,7 +42,23 @@
   <link rel="stylesheet" href="./css/animations.css">
   <link rel="stylesheet" href="./css/responsive.css?v=20260613r">
 </head>
-<body>
+<body class="app-loading">
+  <div id="appSplash" class="app-splash" aria-hidden="true">
+    <div class="app-splash-logo">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="40" height="40" rx="10" fill="currentColor" opacity="0.08"/>
+        <path d="M10 14h20M10 20h14M10 26h17" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      </svg>
+      <span>XY Story</span>
+    </div>
+    <div class="app-splash-bars">
+      <div class="app-splash-bar" style="width:62%"></div>
+      <div class="app-splash-bar" style="width:85%"></div>
+      <div class="app-splash-bar" style="width:48%"></div>
+      <div class="app-splash-bar" style="width:73%"></div>
+      <div class="app-splash-bar" style="width:55%"></div>
+    </div>
+  </div>
   <div id="topLoader" class="top-loader" aria-hidden="true"><span></span></div>
   <button id="exitFocusBtn" class="exit-focus-btn" type="button" aria-label="退出沉浸"><i data-lucide="minimize-2"></i></button>
 

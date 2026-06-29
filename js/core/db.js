@@ -62,18 +62,17 @@ export function saveStory(story) {
   });
 }
 
-export function deleteStory(id) {
-  return initDb().then(function (db) {
-    return new Promise(function (resolve, reject) {
-      var transaction = db.transaction(STORE_NAME, "readwrite");
-      var store = transaction.objectStore(STORE_NAME);
-      var request = store.delete(id);
-      request.onsuccess = function () {
-        resolve();
-      };
-      request.onerror = function () {
-        reject(request.error);
-      };
-    });
+export async function deleteStory(id) {
+  const db = await initDb();
+  return await new Promise(function (resolve, reject) {
+    var transaction = db.transaction(STORE_NAME, "readwrite");
+    var store = transaction.objectStore(STORE_NAME);
+    var request = store.delete(id);
+    request.onsuccess = function () {
+      resolve();
+    };
+    request.onerror = function () {
+      reject(request.error);
+    };
   });
 }

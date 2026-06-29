@@ -23,6 +23,29 @@ button, input, textarea, select { font: inherit; color: inherit; }
 button { border: 0; background: none; cursor: pointer; -webkit-user-select: none; user-select: none; }
 input, textarea, select { -webkit-user-select: text; user-select: text; }
 textarea { resize: vertical; }
+
+/* ---- Custom resize handle (replaces ugly browser default) ---- */
+textarea::-webkit-resizer {
+  background-image:
+    radial-gradient(circle, rgba(235,235,245,.42) 1.2px, transparent 1.2px),
+    radial-gradient(circle, rgba(235,235,245,.42) 1.2px, transparent 1.2px),
+    radial-gradient(circle, rgba(235,235,245,.42) 1.2px, transparent 1.2px);
+  background-size: 4px 4px;
+  /* Anchor every dot from the bottom-right corner — always visible
+     regardless of resizer width (thin scrollbar or no scrollbar)  */
+  background-position:
+    bottom 2px right 2px,
+    bottom 6px right 2px,
+    bottom 2px right 6px;
+  background-repeat: no-repeat;
+  background-color: transparent;
+}
+[data-theme="light"] textarea::-webkit-resizer {
+  background-image:
+    radial-gradient(circle, rgba(60,60,67,.32) 1.2px, transparent 1.2px),
+    radial-gradient(circle, rgba(60,60,67,.32) 1.2px, transparent 1.2px),
+    radial-gradient(circle, rgba(60,60,67,.32) 1.2px, transparent 1.2px);
+}
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
