@@ -408,15 +408,17 @@ export function openRelationGraph(story) {
             endArrow: function (d) {
               var activeId = _focusedNodeId || _hoveredNodeId;
               if (activeId) {
-                // If it points to the active node, hide it
-                if (d.target === activeId) {
-                  return false;
+                var isRelated = d.source === activeId || d.target === activeId;
+                if (isRelated) {
+                  // If it points to the active node, hide it
+                  if (d.target === activeId) {
+                    return false;
+                  }
+                  // If it points away from the active node, show it
+                  if (d.source === activeId) {
+                    return true;
+                  }
                 }
-                // If it points away from the active node, show it
-                if (d.source === activeId) {
-                  return true;
-                }
-                return true;
               }
               return true;
             },
@@ -424,15 +426,18 @@ export function openRelationGraph(story) {
               var isMutual = d.data && d.data.mutual;
               var activeId = _focusedNodeId || _hoveredNodeId;
               if (activeId) {
-                // If startArrow points to active node, hide it
-                if (d.source === activeId) {
+                var isRelated = d.source === activeId || d.target === activeId;
+                if (isRelated) {
+                  // If startArrow points to active node, hide it
+                  if (d.source === activeId) {
+                    return false;
+                  }
+                  // If it points away from active node, show it (only if mutual)
+                  if (d.target === activeId && isMutual) {
+                    return true;
+                  }
                   return false;
                 }
-                // If it points away from active node, show it (only if mutual)
-                if (d.target === activeId && isMutual) {
-                  return true;
-                }
-                return false;
               }
               return isMutual ? true : false;
             },
