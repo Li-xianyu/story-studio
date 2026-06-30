@@ -159,19 +159,14 @@ export function findSegment(segmentId) {
 }
 
 export function closeMobilePanels() {
+  if (!window.matchMedia("(max-width: 760px)").matches) return;
   el.libraryPanel.classList.remove("open");
   el.controlsPanel.classList.remove("open");
   if (el.controlsPanel.contains(document.activeElement)) document.activeElement.blur();
   el.controlsPanel.setAttribute("aria-hidden", "true");
   el.mobileBackdrop.classList.remove("show");
   var libraryToggle = document.getElementById("libraryToggle");
-  if (libraryToggle && window.matchMedia("(max-width: 760px)").matches) {
+  if (libraryToggle) {
     libraryToggle.setAttribute("aria-expanded", "false");
-  }
-  if (window.matchMedia("(min-width: 761px)").matches) {
-    localStorage.setItem("floating-story-studio-panels-v1", JSON.stringify({
-      libraryOpen: !document.body.classList.contains("library-collapsed"),
-      controlsOpen: false,
-    }));
   }
 }
