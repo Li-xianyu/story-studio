@@ -3,6 +3,8 @@
    依赖：AntV G6 5.x (window.G6)
    ============================================================ */
 
+import { escapeHtml } from "../core/utils.js";
+
 var graphInstance = null;
 var graphInitTimeoutId = null;
 var graphIsRendering = false;
@@ -261,7 +263,7 @@ export function openRelationGraph(story) {
         '<div class="rg-empty-icon"><i data-lucide="git-branch"></i></div>' +
         '<p class="rg-empty-title">未能识别关系结构</p>' +
         '<p class="rg-empty-hint">当前记忆格式无法解析为关系图，以下是原文：</p>' +
-        '<pre class="rg-raw-text">' + escapeHtmlSafe(text) + '</pre>';
+        '<pre class="rg-raw-text">' + escapeHtml(text) + '</pre>';
     }
     if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
     dialog.showModal();
@@ -532,7 +534,7 @@ export function openRelationGraph(story) {
       emptyBox.style.display = "";
       emptyBox.innerHTML =
         '<p class="rg-empty-title">关系图渲染失败</p>' +
-        '<p class="rg-empty-hint">' + escapeHtmlSafe(err && err.message ? err.message : String(err)) + '</p>';
+        '<p class="rg-empty-hint">' + escapeHtml(err && err.message ? err.message : String(err)) + '</p>';
     }
   }, 350);
 }
@@ -543,6 +545,3 @@ export function closeRelationGraph() {
   if (dialog && dialog.open) dialog.close();
 }
 
-function escapeHtmlSafe(s) {
-  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}

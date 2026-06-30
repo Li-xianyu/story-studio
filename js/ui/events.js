@@ -3,7 +3,7 @@
    ============================================================ */
 
 import { state, settings, el, getStory, getChapter, touchStory, saveState, saveSettings, createStoryData, isPristineStory, applyReaderSettings } from "../core/state.js";
-import { uid, nowIso, toast, setBusy } from "../core/utils.js";
+import { uid, nowIso, toast, setBusy, tryRepairJson } from "../core/utils.js";
 import { renderAll, renderStory, renderStoryList, renderChapterList, renderControls, renderMemory, renderBranches, segmentHtml } from "./renderer.js";
 import { openSettings, saveSettingsForm, syncTtsProviderFields, openSegmentEditor, saveSegmentEdit, createUndoSnapshot, undoLastChange } from "./dialogs.js";
 import { syncAll } from "./custom-select.js";
@@ -722,29 +722,10 @@ async function generateComments(chapterId, mode, amount) {
       throw new Error("未找到有效JSON");
     }
     var jsonStr = jsonMatch[0];
-    var parsed;
-    try {
-      parsed = JSON.parse(jsonStr);
-    } catch (parseErr) {
-      console.warn("[段评生成] JSON解析失败，尝试修复", { error: parseErr.message, json: jsonStr.slice(0, 300) });
-      // Try to fix truncated JSON: close open brackets/braces
-      var fixed = jsonStr;
-      // Count unclosed brackets
-      var openBrackets = (fixed.match(/\[/g) || []).length - (fixed.match(/\]/g) || []).length;
-      var openBraces = (fixed.match(/\{/g) || []).length - (fixed.match(/\}/g) || []).length;
-      // Remove trailing incomplete element (find last comma or incomplete string)
-      fixed = fixed.replace(/,\s*$/, "").replace(/"[^"]*$/, "");
-      // Close arrays and objects
-      for (var i = 0; i < openBrackets; i++) fixed += "]";
-      for (var i = 0; i < openBraces; i++) fixed += "}";
-      console.log("[段评生成] 修复后的JSON:", fixed);
-      try {
-        parsed = JSON.parse(fixed);
-        console.log("[段评生成] 修复成功");
-      } catch (e) {
-        console.error("[段评生成] JSON修复失败", { error: e.message, fixed: fixed.slice(0, 500) });
-        throw new Error("JSON格式错误，请重试");
-      }
+    var parsed = tryRepairJson(jsonStr);
+    if (!parsed) {
+      console.error("[段评生成] JSON解析与修复失败", { json: jsonStr.slice(0, 500) });
+      throw new Error("JSON格式错误，请重试");
     }
     if (!parsed || !Array.isArray(parsed.comments)) {
       console.error("[段评生成] 缺少comments数组", { parsed: parsed });
@@ -1099,7 +1080,6 @@ export function bindEvents() {
         if (body.scrollHeight <= body.clientHeight) return true;
         // If scrolled to top and dragging down, allow drag
         if (body.scrollTop <= 0) {
-          var clientY = e.touches ? e.touches[0].clientY : e.clientY;
           var startY = e.touches ? e.touches[0].clientY : e.clientY;
           // Store startY on the event target for later check in onMove
           body._dragStartY = startY;
@@ -1162,19 +1142,18 @@ export function bindEvents() {
     });
   });
 
-  // 统一的弹窗外部点击关闭机制 (归一化复用)
-  document.querySelectorAll("dialog.modal").forEach(function(dialog) {
-    dialog.addEventListener("click", function(event) {
+  // 统一的弹窗外部点击关闭机制 (归一化复用，使用事件委托)
+  document.addEventListener("click", function (event) {
+    var dialog = event.target.closest("dialog.modal");
+    if (dialog && event.target === dialog) {
       if (dialog.id === "memoryProgressDialog") return; // 进度条禁止点击外部关闭
-      if (event.target === dialog) {
-        var rect = dialog.getBoundingClientRect();
-        var isInDialog = (rect.top <= event.clientY && event.clientY <= rect.top + rect.height &&
-          rect.left <= event.clientX && event.clientX <= rect.left + rect.width);
-        if (!isInDialog && dialog.open) {
-          dialog.close();
-        }
+      var rect = dialog.getBoundingClientRect();
+      var isInDialog = (rect.top <= event.clientY && event.clientY <= rect.top + rect.height &&
+        rect.left <= event.clientX && event.clientX <= rect.left + rect.width);
+      if (!isInDialog && dialog.open) {
+        dialog.close();
       }
-    });
+    }
   });
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape") {

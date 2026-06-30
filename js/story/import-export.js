@@ -3,7 +3,7 @@
    ============================================================ */
 
 import { state, el, getStory, saveState, createStoryData, isPristineStory, normalizePov } from "../core/state.js";
-import { uid, nowIso, toast } from "../core/utils.js";
+import { uid, nowIso, toast, safeParse } from "../core/utils.js";
 import { renderAll } from "../ui/renderer.js";
 
 export function exportStory() {
@@ -70,6 +70,3 @@ export async function importFile(file) {
   toast(el.toast, "\u5bfc\u5165\u5b8c\u6210");
 }
 
-function safeParse(raw, fallback) {
-  try { return JSON.parse(raw); } catch (_) { return fallback; }
-}

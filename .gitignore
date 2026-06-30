@@ -1,8 +1,53 @@
-node_modules/
+# ============================================================
+# 浮光剧场 · Git Ignore Template (Modern & AI-Agent Era)
+# ============================================================
+
+# --- System & OS ---
 .DS_Store
 Thumbs.db
 *.log
+*.tmp
+*.bak
+
+# --- IDEs & Editor Configs ---
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# --- AI Agents & LLM Tools (Cache, History, Metadata) ---
 .codegraph/
 .reasonix/
 reasonix.toml
-docs/
+.cursor/
+.agent/
+.gemini/
+.aiexclude
+.aider*
+!.aider.conf.yml
+.aider.chat.history.md
+.aider.tags.cache.v3/
+
+# --- Dependency & Build Outputs ---
+node_modules/
+dist/
+build/
+out/
+.npm/
+
+# --- Local Secrets (Never commit) ---
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# --- Project Docs (Explicitly Allowed) ---
+# 我们需要将这些核心文档推送到远端，以便人类和 AI 协同阅读
+*.md
+!README.md
+!DEVELOPMENT.md
+!AGENTS.md

@@ -3,7 +3,7 @@
    ============================================================ */
 
 import { state, el, getStory, getChapter, touchStory } from "../core/state.js";
-import { toast } from "../core/utils.js";
+import { toast, escapeHtml, setBusy } from "../core/utils.js";
 import { streamCompletion } from "../core/api.js";
 import { renderMemory } from "../ui/renderer.js";
 
@@ -173,7 +173,7 @@ async function generateMemoryLabels(story) {
 /* ---- 单章记忆增量提取 prompt ---- */
 
 function buildChapterExtractPrompt(chapter, chapterIndex, story, oldSummary) {
-  var chRecent = chapter.segments.slice(-12).map(function (s) { return s.content; }).filter(Boolean).join("\n\n").slice(-18000);
+  var chRecent = recentNarrative(chapter);
   
   var oldWorldState = story.memory.worldState || story.memory.worldConstants || "";
   var oldPlotThreads = story.memory.plotThreads || story.memory.threads || "";
@@ -251,11 +251,7 @@ function updateProgressNode(id, status, desc) {
   if (descEl && desc) descEl.textContent = desc;
 }
 
-function escapeHtml(str) {
-  return String(str || "").replace(/[&<>'"]/g, function (tag) {
-    return {"&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"}[tag];
-  });
-}
+// Removed local escapeHtml in favor of importing from core/utils.js
 
 /* ---- 整理记忆主流程 ---- */
 
@@ -278,7 +274,7 @@ export async function summarizeMemory() {
     return;
   }
 
-  setBusy(true, "正在整理故事记忆…");
+  setMemoryGenerating(true, "正在整理故事记忆…");
   openProgressDialog();
   generateMemoryLabels(story).then(function(labels) {
     if (labels && state.abortController) startCarousel(labels);
@@ -350,7 +346,7 @@ export async function summarizeMemory() {
   } finally {
     stopCarousel();
     state.abortController = null;
-    setBusy(false);
+    setMemoryGenerating(false);
     if (el.memoryProgressDialog) el.memoryProgressDialog.close();
   }
 }
@@ -370,7 +366,7 @@ export async function prepareChapterMemory() {
   });
   if (!sourceChapters.length) return true;
 
-  setBusy(true, "正在整理前文…");
+  setMemoryGenerating(true, "正在整理前文…");
   openProgressDialog();
   generateMemoryLabels(story).then(function(labels) {
     if (labels && state.abortController) startCarousel(labels);
@@ -448,19 +444,13 @@ export async function prepareChapterMemory() {
   } finally {
     stopCarousel();
     state.abortController = null;
-    setBusy(false);
+    setMemoryGenerating(false);
     if (el.memoryProgressDialog) el.memoryProgressDialog.close();
   }
 }
 
-/* ---- setBusy ---- */
-
-function setBusy(busy, text) {
+// Removed local setBusy in favor of importing from core/utils.js and setting state.generating directly
+function setMemoryGenerating(busy, text) {
   state.generating = busy;
-  el.composerInput.disabled = busy;
-  el.sendBtn.classList.toggle("hidden", busy);
-  el.stopBtn.classList.toggle("hidden", !busy);
-  el.statusText.textContent = text || (busy ? "正在续写…" : "准备就绪");
-  el.topLoader.classList.toggle("active", busy);
-  el.topLoader.setAttribute("aria-hidden", busy ? "false" : "true");
+  setBusy(el, busy, text);
 }
