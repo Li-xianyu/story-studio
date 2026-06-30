@@ -7,7 +7,6 @@ var graphInstance = null;
 var graphInitTimeoutId = null;
 var graphIsRendering = false;
 var graphPendingDestroy = false;
-var currentParsed = null;
 var graphResizeObserver = null;
 var _graphControls = null;
 var _focusedNodeId = null;  // currently focused (clicked) node id
@@ -269,7 +268,6 @@ export function openRelationGraph(story) {
     return;
   }
 
-  currentParsed = parsed;
   container.style.display = "";
   emptyBox.style.display = "none";
   emptyBox.innerHTML = "";
@@ -541,7 +539,6 @@ export function openRelationGraph(story) {
 
 export function closeRelationGraph() {
   destroyGraph();
-  currentParsed = null;
   var dialog = document.getElementById("relationGraphDialog");
   if (dialog && dialog.open) dialog.close();
 }
@@ -549,4 +546,3 @@ export function closeRelationGraph() {
 function escapeHtmlSafe(s) {
   return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-function escapeHtml(s) { return escapeHtmlSafe(s); }
