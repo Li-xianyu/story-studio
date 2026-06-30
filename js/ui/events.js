@@ -834,13 +834,17 @@ function openCommentSheet(segmentId, pIndex) {
   var comments = segment.paragraphComments[pIndex];
   if (!comments.length) return;
   el.commentSheetTitle.textContent = comments.length + " 条段评";
+
   el.commentSheetBody.innerHTML = comments.map(function (c, i) {
-    var seed = (c.username || "user" + i);
+    var username = c.username || "匿名";
+    // Dicebear adventurer style: anime-like faces, seed-stable, no privacy concerns
+    var avatarUrl = "https://api.dicebear.com/7.x/adventurer/svg?seed=" + encodeURIComponent(username) + "&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf";
+
     var timeAgo = ["刚刚", "1分钟前", "3分钟前", "5分钟前", "12分钟前", "1小时前", "2小时前"][Math.floor(Math.random() * 7)];
     return '<div class="comment-card">' +
-      '<img class="comment-avatar" src="https://api.dicebear.com/7.x/fun-emoji/svg?seed=' + encodeURIComponent(seed) + '" alt="avatar" onerror="this.style.background=\'#6366f1\';this.style.padding=\'8px\';this.alt=\'' + (c.username || "匿").slice(0,1) + '\'" />' +
+      '<img class="comment-avatar" src="' + avatarUrl + '" alt="avatar" />' +
       '<div class="comment-info">' +
-        '<div class="comment-username">' + (c.username || "匿名") + '</div>' +
+        '<div class="comment-username">' + username + '</div>' +
         '<div class="comment-text">' + (c.content || "") + '</div>' +
         '<div class="comment-meta"><span>' + timeAgo + '</span><span class="comment-likes"><i data-lucide="thumbs-up"></i>' + (c.likes || 0) + '</span></div>' +
       '</div></div>';
