@@ -74,15 +74,19 @@
 
       <button id="newStoryBtn" class="library-create-btn"><i data-lucide="plus"></i><span>新建故事</span></button>
 
+      <div class="library-tabs">
+        <button type="button" class="active" data-lib-tab="stories">书架</button>
+        <button type="button" data-lib-tab="chapters">目录</button>
+      </div>
+
       <div class="library-panel-body">
-        <section class="library-group">
-          <div class="section-label">我的故事</div>
+        <section data-lib-panel="stories" class="library-group">
           <div id="storyList" class="story-list"></div>
         </section>
 
-        <section class="library-group">
-          <div class="section-head">
-            <span class="section-label">章节目录</span>
+        <section data-lib-panel="chapters" class="library-group" hidden>
+          <div class="section-head" style="margin-bottom: 8px;">
+            <span class="section-label" style="margin: 0;">章节目录</span>
             <button id="addChapterBtn" class="library-add-btn" title="新章节" aria-label="新章节"><i data-lucide="plus"></i></button>
           </div>
           <div id="chapterList" class="chapter-list"></div>

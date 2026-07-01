@@ -483,6 +483,26 @@
   box-shadow: 0 1px 4px rgba(0,0,0,0.2),
     inset 0 0.5px 0 var(--glass-highlight);
 }
+/* === Library Tabs === */
+.library-tabs {
+  display: flex; gap: 4px; padding: 3px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  margin: 12px 4px 6px;
+  flex-shrink: 0;
+}
+.library-tabs button {
+  flex: 1; text-align: center; padding: 6px; border-radius: var(--radius-md);
+  font-size: 13px; font-weight: 500; color: var(--text-secondary);
+  border: none; background: transparent; cursor: pointer;
+  transition: all .2s ease;
+}
+.library-tabs button.active {
+  color: var(--text-primary); background: var(--glass-bg-thick);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2),
+    inset 0 0.5px 0 var(--glass-highlight);
+}
 [data-settings-panel] { display: grid; gap: 20px; }
 [data-settings-panel] > div { display: grid; gap: 16px; }
 [data-rs-panel] { display: grid; gap: 20px; }

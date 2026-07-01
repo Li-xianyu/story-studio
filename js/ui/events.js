@@ -1200,6 +1200,8 @@ export function bindEvents() {
     state.activeStoryId = button.dataset.storyId;
     state.activeChapterId = getStory().chapters[0].id;
     saveState(); renderAll(); closeMobilePanels(); stopSpeech();
+    var tab = document.querySelector("[data-lib-tab='chapters']");
+    if (tab) tab.click();
   });
   el.deleteStoryDialog.addEventListener("close", function () {
     pendingDeleteStoryId = "";
@@ -1631,6 +1633,8 @@ export function bindEvents() {
     state.activeStoryId = story.id;
     state.activeChapterId = story.chapters[0].id;
     saveState(); renderAll(); el.setupDialog.close(); el.setupForm.reset();
+    var tab = document.querySelector("[data-lib-tab='chapters']");
+    if (tab) tab.click();
     generateNarrative("根据开场设定写出小说第一幕。直接进入场景，以有吸引力但不故弄玄虚的方式开篇。", "opening");
   });
 
@@ -2132,4 +2136,17 @@ export function bindEvents() {
       if (el.memoryProgressDialog) el.memoryProgressDialog.close();
     });
   }
+
+  // Library Tabs Switching
+  document.querySelectorAll("[data-lib-tab]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      document.querySelectorAll("[data-lib-tab]").forEach(function (item) { item.classList.toggle("active", item === button); });
+      document.querySelectorAll("[data-lib-panel]").forEach(function (panel) { panel.hidden = panel.dataset.libPanel !== button.dataset.libTab; });
+    });
+  });
+
+  // Default active tab based on active story state on startup
+  var defaultTabKey = state.activeStoryId ? "chapters" : "stories";
+  var defaultTab = document.querySelector("[data-lib-tab='" + defaultTabKey + "']");
+  if (defaultTab) defaultTab.click();
 }
