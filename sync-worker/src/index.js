@@ -42,14 +42,21 @@ async function generateToken() {
 
 /* ---- 获取云端故事元数据索引列表 ---- */
 async function getCloudIndex(env, syncToken) {
-  var list = await env.SYNC_KV.list({ prefix: syncToken + ":meta:" });
   var index = [];
-  for (var i = 0; i < list.keys.length; i++) {
-    var keyInfo = list.keys[i];
-    if (keyInfo.metadata) {
-      index.push(keyInfo.metadata);
+  var cursor = null;
+  do {
+    var list = await env.SYNC_KV.list({
+      prefix: syncToken + ":meta:",
+      cursor: cursor
+    });
+    for (var i = 0; i < list.keys.length; i++) {
+      var keyInfo = list.keys[i];
+      if (keyInfo.metadata) {
+        index.push(keyInfo.metadata);
+      }
     }
-  }
+    cursor = list.list_complete ? null : list.cursor;
+  } while (cursor);
   return index;
 }
 

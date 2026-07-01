@@ -171,42 +171,61 @@ export async function runSync() {
         var meta = needPull[i];
         var remoteStory = await syncRequest("/stories/" + meta.id, "GET");
         
-        // Conflict Check:
-        var local = activeStories.find(function (s) { return s.id === remoteStory.id; });
+        // Conflict Check (check full localStories to protect trashed stories from overwrite)
+        var local = localStories.find(function (s) { return s.id === remoteStory.id; });
         if (local) {
-          var hasLocalMod = local.updatedAt > (local.syncedAt || "");
-          var isCloudNewer = remoteStory.updatedAt > (local.syncedAt || "");
-          if (hasLocalMod && isCloudNewer && local.updatedAt !== remoteStory.updatedAt) {
-            // Conflict detected! Ask user
-            var choice = await showConflictDialog(local.title, local.updatedAt, remoteStory.updatedAt);
-            if (choice === "cloud") {
-              // Backup local copy as a separate story (remains active but renamed)
-              var backup = JSON.parse(JSON.stringify(local));
-              backup.id = uid("story");
-              backup.title = (backup.title || "未命名故事") + " (冲突备份 " + new Date().toLocaleDateString() + ")";
-              delete backup.syncedAt;
-              await saveStory(backup);
-              
-              // Apply remote
+          if (local.trash) {
+            // Local copy is in the trash
+            var isCloudNewerThanDeletion = remoteStory.updatedAt > (local.deletedAt || local.updatedAt || "");
+            if (isCloudNewerThanDeletion) {
+              // Remote has updates that occurred AFTER it was trashed locally -> Resurrect!
               remoteStory.syncedAt = nowLocal;
               await saveStory(remoteStory);
               changed = true;
-            } else if (choice === "local") {
-              // Force push local to cloud (without settings)
-              await syncRequest("/sync/push", "POST", {
-                stories: [local]
-              });
-              local.syncedAt = nowLocal;
-              await saveStory(local);
+              console.log("[Sync] Resurrected story from trash because remote has newer updates: " + remoteStory.title);
+              state.stories.push(remoteStory);
             } else {
-              // cancel - skip
-              continue;
+              // Keep in trash! Save latest remote contents but retain trash status
+              remoteStory.trash = true;
+              remoteStory.deletedAt = local.deletedAt;
+              remoteStory.syncedAt = nowLocal;
+              await saveStory(remoteStory);
             }
           } else {
-            // Normal pull (set syncedAt to local clock to prevent timezone mismatch)
-            remoteStory.syncedAt = nowLocal;
-            await saveStory(remoteStory);
-            changed = true;
+            var hasLocalMod = local.updatedAt > (local.syncedAt || "");
+            var isCloudNewer = remoteStory.updatedAt > (local.syncedAt || "");
+            if (hasLocalMod && isCloudNewer && local.updatedAt !== remoteStory.updatedAt) {
+              // Conflict detected! Ask user
+              var choice = await showConflictDialog(local.title, local.updatedAt, remoteStory.updatedAt);
+              if (choice === "cloud") {
+                // Backup local copy as a separate story (remains active but renamed)
+                var backup = JSON.parse(JSON.stringify(local));
+                backup.id = uid("story");
+                backup.title = (backup.title || "未命名故事") + " (冲突备份 " + new Date().toLocaleDateString() + ")";
+                delete backup.syncedAt;
+                await saveStory(backup);
+                
+                // Apply remote
+                remoteStory.syncedAt = nowLocal;
+                await saveStory(remoteStory);
+                changed = true;
+              } else if (choice === "local") {
+                // Force push local to cloud (without settings)
+                await syncRequest("/sync/push", "POST", {
+                  stories: [local]
+                });
+                local.syncedAt = nowLocal;
+                await saveStory(local);
+              } else {
+                // cancel - skip
+                continue;
+              }
+            } else {
+              // Normal pull (set syncedAt to local clock to prevent timezone mismatch)
+              remoteStory.syncedAt = nowLocal;
+              await saveStory(remoteStory);
+              changed = true;
+            }
           }
         } else {
           // New story from cloud

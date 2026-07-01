@@ -2147,6 +2147,7 @@ export function bindEvents() {
           if (story) {
             story.trash = false;
             delete story.deletedAt;
+            delete story.syncedAt;
             story.updatedAt = new Date().toISOString();
             return saveStory(story).then(function () {
               // Remove from delete queue if queued
