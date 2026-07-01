@@ -148,13 +148,18 @@ function buildChapterExtractPrompt(chapter, chapterIndex, story, oldSummary, chu
   var oldWorldState = story.memory.worldState || story.memory.worldConstants || "";
   var oldPlotThreads = story.memory.plotThreads || story.memory.threads || "";
   
+  // Calculate dynamic target summary length based on text chunk size (approx 8% of input characters, bounded between 150 and 600 chars)
+  var targetSummaryLen = Math.max(150, Math.min(600, Math.floor(chRecent.length * 0.08)));
+  var minSummaryLen = Math.max(100, Math.floor(targetSummaryLen * 0.7));
+  var maxSummaryLen = Math.floor(targetSummaryLen * 1.3);
+  
   var prompt = [
     "请分析以下小说正文，为指定章节生成或更新故事记忆。必须返回严格的 JSON 格式数据。",
     "当前是第 " + chapterIndex + " 章，标题：「" + chapter.title + "」。" + (isChunked ? "（本章正文已拆分为 " + totalChunks + " 块分批处理，当前为第 " + chunkIndex + "/" + totalChunks + " 块，请在已有记忆基础上累积更新，不要遗漏已记录信息。）" : ""),
     '返回格式：\n{"summary":"本章详细剧情摘要，必须以【第' + chapterIndex + '章】开头","worldState":"完整的当前世界状态、势力格局、常数设定等（若无变化可保持原样，如有变化请更新）","plotThreads":"当前所有未解决的任务、悬念与伏笔（剔除本章已解决的，添加本章新增的）","characters": [{"source": "角色A", "target": "角色B", "relation": "具体关系描述，如青梅竹马、死敌", "mutual": true或false}]}',
     "",
     "【重要更新规则】",
-    "1. 你不仅是在归纳本章，更是在维护一份「全局记忆」。",
+    "1. 对于 summary：请生成一份本章的详细剧情摘要（必须以【第 " + chapterIndex + " 章】开头）。目标字数在 " + targetSummaryLen + " 字左右。请根据正文篇幅 and 情节复杂度动态调整：如果正文情节起伏大、对白重要或细节丰富，请务必写得十分详细，重点保留核心动作神态、关键台词线索、人物心理/态度转变以及重要伏笔事件；如果是过度章节，可相对精简。摘要字数绝对不能少于 " + minSummaryLen + " 字，也不能多于 " + maxSummaryLen + " 字。",
     "2. 对于 worldState 和 plotThreads：请综合【已有记忆基础】与【待处理正文】，输出一份最新的、完整的全局文本。不要只写增量！如果本章没有任何相关更新，直接复用已有记忆即可；如果已有记忆的某些设定在本章发生了改变或失效，请在输出中修改或删除它们。",
     "3. 对于 characters：输出一个 JSON 数组，包含故事中所有重要人物的关系。每个关系对象必须有 source, target, relation, mutual 字段。关系描述必须是 2~4 个字的简短关系词（如：上下级、同僚、同袍、死敌、暗恋等。注意区分身份场合，例如军队/官场请用'上下级'或'属下'，切勿滥用'主仆'），绝对不要写成一大长串句子！不要漏掉旧记忆里依然存在的角色关系。",
     "请确保返回的是符合上述结构的纯 JSON 文本！",
