@@ -2,8 +2,8 @@
    浮光剧场 · WebDAV/Cloudflare Workers Cloud Sync Module
    ============================================================ */
 
-import { settings, saveSettings, saveState } from "./state.js";
-import { getAllStories, saveStory } from "./db.js";
+import { settings, state, saveSettings, saveState, ensureActiveSelection } from "./state.js";
+import { getAllStories, saveStory, deleteStory as dbDeleteStory } from "./db.js";
 import { toast, setBusy, uid, escapeHtml } from "./utils.js";
 import { renderAll } from "../ui/renderer.js";
 
@@ -194,20 +194,51 @@ export async function runSync() {
       }
     }
     
-    // 3. Push updates to Cloud
+    // 3. Push updates to Cloud (or propagate deletions from cloud)
     if (needPush.length > 0) {
       var pushStories = localStories.filter(function (s) {
         return needPush.some(function (p) { return p.id === s.id; });
       });
-      if (pushStories.length > 0) {
+      
+      var verifiedPush = [];
+      var deletedLocalCount = 0;
+      
+      for (var k = 0; k < pushStories.length; k++) {
+        var s = pushStories[k];
+        if (s.syncedAt) {
+          // Previously synced, but now missing in cloud -> deleted on other device!
+          var index = state.stories.findIndex(function (item) { return item.id === s.id; });
+          if (index >= 0) {
+            state.stories.splice(index, 1);
+            if (state.activeStoryId === s.id) {
+              var nextStory = state.stories[Math.min(index, state.stories.length - 1)] || null;
+              state.activeStoryId = nextStory ? nextStory.id : "";
+              state.activeChapterId = nextStory && nextStory.chapters[0] ? nextStory.chapters[0].id : "";
+            }
+          }
+          await dbDeleteStory(s.id);
+          deletedLocalCount++;
+          changed = true;
+          console.warn("[Sync] Local story deleted due to remote deletion propagation: " + s.title);
+        } else {
+          // Brand new story -> push to cloud
+          verifiedPush.push(s);
+        }
+      }
+      
+      if (deletedLocalCount > 0) {
+        ensureActiveSelection();
+      }
+      
+      if (verifiedPush.length > 0) {
         var res = await syncRequest("/sync/push", "POST", {
-          stories: pushStories,
+          stories: verifiedPush,
           settings: settings
         });
         
         var now = (res && res.pushedAt) || new Date().toISOString();
-        for (var k = 0; k < pushStories.length; k++) {
-          var s = pushStories[k];
+        for (var k = 0; k < verifiedPush.length; k++) {
+          var s = verifiedPush[k];
           s.syncedAt = now;
           await saveStory(s);
         }
