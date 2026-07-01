@@ -103,12 +103,16 @@ export function generateSyncToken() {
   });
 }
 
+var isSyncing = false;
+
 // Perform a bi-directional synchronization
 export async function runSync() {
+  if (isSyncing) return null;
   if (!settings.syncHost || !settings.syncToken) {
     return null; // Sync is not configured, fail silently
   }
   
+  isSyncing = true;
   try {
     // 0. Handle pending deletions
     var deletedIds = [];
@@ -245,19 +249,29 @@ export async function runSync() {
       }
     }
     
-    // 4. Sync Settings
+    // 4. Sync Settings (with conflict resolution based on updatedAt)
     var cloudSettings = await syncRequest("/settings", "GET");
+    var cloudUpdatedAt = (cloudSettings && cloudSettings.updatedAt) || "";
+    var localUpdatedAt = settings.updatedAt || "";
+    
     if (cloudSettings && typeof cloudSettings === "object" && Object.keys(cloudSettings).length > 0) {
-      var localModified = false;
-      Object.keys(cloudSettings).forEach(function (key) {
-        if (key !== "apiKey" && key !== "ttsKey" && settings[key] !== cloudSettings[key]) {
-          settings[key] = cloudSettings[key];
-          localModified = true;
+      if (cloudUpdatedAt > localUpdatedAt) {
+        // Cloud settings are newer -> pull them
+        var localModified = false;
+        Object.keys(cloudSettings).forEach(function (key) {
+          if (key !== "apiKey" && key !== "ttsKey" && key !== "updatedAt" && settings[key] !== cloudSettings[key]) {
+            settings[key] = cloudSettings[key];
+            localModified = true;
+          }
+        });
+        if (localModified) {
+          settings.updatedAt = cloudUpdatedAt;
+          localStorage.setItem("floating-story-studio-settings-v1", JSON.stringify(settings));
+          changed = true;
         }
-      });
-      if (localModified) {
-        saveSettings();
-        changed = true;
+      } else if (localUpdatedAt > cloudUpdatedAt) {
+        // Local settings are newer -> push them
+        await syncRequest("/settings", "PUT", settings);
       }
     }
     
@@ -269,6 +283,8 @@ export async function runSync() {
   } catch (error) {
     console.error("同步失败:", error);
     throw error;
+  } finally {
+    isSyncing = false;
   }
 }
 

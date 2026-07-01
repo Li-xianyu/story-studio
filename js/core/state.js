@@ -243,7 +243,9 @@ export function saveState() {
 }
 
 export function saveSettings() {
+  settings.updatedAt = new Date().toISOString();
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  import("./sync.js").then(function (m) { m.triggerAutoSync(); });
 }
 
 export function applyReaderSettings() {
