@@ -1972,12 +1972,8 @@ export function bindEvents() {
     }
   }
 
-  el.syncPullBtn.addEventListener("click", function () {
-    performSyncAction(el.syncPullBtn);
-  });
-
-  el.syncPushBtn.addEventListener("click", function () {
-    performSyncAction(el.syncPushBtn);
+  el.syncNowBtn.addEventListener("click", function () {
+    performSyncAction(el.syncNowBtn);
   });
 
 

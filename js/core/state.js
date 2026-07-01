@@ -67,7 +67,7 @@ var ids = [
   "contextMenu",
   "generateCommentsBtn", "commentSheet", "commentSheetBackdrop", "commentSheetBody", "commentSheetTitle", "commentSheetClose", "composerModeHint",
   "commentGenSheet", "commentGenSheetBackdrop", "commentGenSheetClose", "commentGenChapter", "commentGenStartBtn", "commentGenModeTabs", "commentGenAmountTabs", "commentGenHint",
-  "syncHost", "syncToken", "copySyncTokenBtn", "genSyncTokenBtn", "syncPingBtn", "syncPullBtn", "syncPushBtn"
+  "syncHost", "syncToken", "copySyncTokenBtn", "genSyncTokenBtn", "syncPingBtn", "syncNowBtn"
 ];
 
 export function cacheElements() {
