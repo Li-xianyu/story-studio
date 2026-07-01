@@ -6,6 +6,7 @@ import { state, settings, el, getStory, getChapter, isPristineStory, applyReader
 import { escapeHtml } from "../core/utils.js";
 import { stripVoiceMarkers } from "../core/speech-track.js";
 import { parseRelationGraph } from "./relation-graph.js";
+import { getAllStories } from "../core/db.js";
 
 export function renderAll() {
   renderStoryList();
@@ -14,6 +15,7 @@ export function renderAll() {
   renderControls();
   renderMemory();
   renderBranches();
+  renderTrashList();
 }
 
 export function renderStoryList() {
@@ -32,6 +34,35 @@ export function renderStoryList() {
         '<button class="story-mini-btn danger" data-story-action="delete" data-story-id="' + story.id +
         '" title="\u5220\u9664\u6545\u4e8b" aria-label="\u5220\u9664' + escapeHtml(story.title) + '"><i data-lucide="trash-2"></i></button></div></div>';
     }).join("");
+}
+
+export async function renderTrashList() {
+  if (!el.trashList) return;
+  try {
+    var all = await getAllStories();
+    var trashStories = all.filter(function (s) { return s.trash; });
+    el.trashList.innerHTML = trashStories.length === 0
+      ? '<div style="padding: 24px; text-align: center; color: var(--text-tertiary); font-size: 13px;">回收站是空的</div>'
+      : trashStories
+          .sort(function (a, b) { return String(b.deletedAt || b.updatedAt).localeCompare(String(a.deletedAt || a.updatedAt)); })
+          .map(function (story) {
+            return '<div class="story-row">' +
+              '<div class="story-item" style="cursor: default; opacity: 0.8; flex: 1;">' +
+              '<strong>' + escapeHtml(story.title) + '</strong>' +
+              '<small style="margin-top: 4px; display: block; color: var(--text-tertiary);">删除于: ' + new Date(story.deletedAt || story.updatedAt).toLocaleString() + '</small>' +
+              '</div>' +
+              '<div class="story-row-actions" style="opacity: 1;">' +
+              '<button class="story-mini-btn" data-trash-action="restore" data-story-id="' + story.id + '" title="还原故事" aria-label="还原故事"><i data-lucide="rotate-ccw"></i></button>' +
+              '<button class="story-mini-btn danger" data-trash-action="purge" data-story-id="' + story.id + '" title="彻底删除" aria-label="彻底删除"><i data-lucide="trash-2"></i></button>' +
+              '</div></div>';
+          }).join("");
+          
+    if (window.lucide && typeof window.lucide.createIcons === "function") {
+      window.lucide.createIcons();
+    }
+  } catch (err) {
+    console.error("加载回收站列表失败:", err);
+  }
 }
 
 export function renderChapterList() {

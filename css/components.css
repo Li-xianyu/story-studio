@@ -503,6 +503,45 @@
   box-shadow: 0 1px 4px rgba(0,0,0,0.2),
     inset 0 0.5px 0 var(--glass-highlight);
 }
+
+/* === Sync Status Indicator === */
+.sync-indicator {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  opacity: 0.6;
+  transition: all 0.3s ease;
+  vertical-align: middle;
+}
+.sync-indicator[data-status="none"] {
+  display: none;
+}
+.sync-indicator[data-status="synced"] {
+  background: #34c759;
+  box-shadow: 0 0 6px #34c759;
+  opacity: 1;
+}
+.sync-indicator[data-status="syncing"] {
+  background: #007aff;
+  box-shadow: 0 0 6px #007aff;
+  opacity: 1;
+  animation: pulse-sync 1.5s infinite;
+}
+.sync-indicator[data-status="failed"] {
+  background: #ff3b30;
+  box-shadow: 0 0 6px #ff3b30;
+  opacity: 1;
+  animation: pulse-sync 1s infinite;
+}
+
+@keyframes pulse-sync {
+  0% { transform: scale(0.95); opacity: 0.6; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.6; }
+}
+
 [data-settings-panel] { display: grid; gap: 20px; }
 [data-settings-panel] > div { display: grid; gap: 16px; }
 [data-rs-panel] { display: grid; gap: 20px; }

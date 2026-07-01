@@ -66,7 +66,10 @@
     <aside id="libraryPanel" class="side-panel library-panel">
       <div class="brand-row">
         <div>
-          <strong>XY Story</strong>
+          <strong style="display: flex; align-items: center; gap: 6px;">
+            <span>XY Story</span>
+            <span id="syncIndicator" class="sync-indicator" title="未配置云同步" data-status="none"></span>
+          </strong>
           <small>AI 互动小说播放器</small>
         </div>
         <button id="libraryThemeBtn" class="icon-btn" title="切换主题" aria-label="切换主题"><i data-lucide="sun"></i></button>
@@ -77,6 +80,7 @@
       <div class="library-tabs">
         <button type="button" class="active" data-lib-tab="stories">书架</button>
         <button type="button" data-lib-tab="chapters">目录</button>
+        <button type="button" data-lib-tab="trash" title="回收站"><i data-lucide="trash-2" style="width: 13px; height: 13px; margin-right: 4px; vertical-align: middle;"></i>回收站</button>
       </div>
 
       <div class="library-panel-body">
@@ -90,6 +94,14 @@
             <button id="addChapterBtn" class="library-add-btn" title="新章节" aria-label="新章节"><i data-lucide="plus"></i></button>
           </div>
           <div id="chapterList" class="chapter-list"></div>
+        </section>
+
+        <section data-lib-panel="trash" class="library-group" hidden>
+          <div class="section-head" style="margin-bottom: 8px;">
+            <span class="section-label" style="margin: 0;">回收站</span>
+            <button id="emptyTrashBtn" class="quiet-btn" style="padding: 2px 6px; font-size: 11px; color: var(--text-tertiary);" title="清空回收站">清空</button>
+          </div>
+          <div id="trashList" class="story-list"></div>
         </section>
       </div>
 

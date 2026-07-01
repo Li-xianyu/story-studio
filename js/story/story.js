@@ -3,7 +3,7 @@
    ============================================================ */
 
 import { state, el, getStory, getChapter, touchStory, saveState, ensureActiveSelection } from "../core/state.js";
-import { deleteStory as dbDeleteStory } from "../core/db.js";
+import { deleteStory as dbDeleteStory, saveStory as dbSaveStory } from "../core/db.js";
 import { uid, nowIso, toast } from "../core/utils.js";
 import { renderAll, renderChapterList, renderBranches, renderStory } from "../ui/renderer.js";
 import { createUndoSnapshot } from "../ui/dialogs.js";
@@ -31,17 +31,27 @@ export function renameStory(storyId, name) {
 }
 
 export function deleteStory(storyId) {
-  var index = state.stories.findIndex(function (story) { return story.id === storyId; });
-  if (index < 0) return;
-  state.stories.splice(index, 1);
+  var story = state.stories.find(function (s) { return s.id === storyId; });
+  if (!story) return;
+  
+  story.trash = true;
+  story.deletedAt = new Date().toISOString();
+  story.updatedAt = new Date().toISOString();
+  
+  var index = state.stories.findIndex(function (s) { return s.id === storyId; });
+  if (index >= 0) {
+    state.stories.splice(index, 1);
+  }
+  
   if (state.activeStoryId === storyId) {
     var nextStory = state.stories[Math.min(index, state.stories.length - 1)] || null;
     state.activeStoryId = nextStory ? nextStory.id : "";
     state.activeChapterId = nextStory && nextStory.chapters[0] ? nextStory.chapters[0].id : "";
   }
   ensureActiveSelection();
-  dbDeleteStory(storyId).catch(function (err) {
-    console.error("从 IndexedDB 删除故事失败:", err);
+  
+  dbSaveStory(story).catch(function (err) {
+    console.error("IndexedDB 软删除状态保存失败:", err);
   });
   
   // Queue deletion for Cloud Sync
@@ -56,7 +66,7 @@ export function deleteStory(storyId) {
   
   saveState();
   renderAll();
-  toast(el.toast, "故事已删除");
+  toast(el.toast, "故事已移入回收站");
   
   // Trigger sync immediately to notify the cloud
   import("../core/sync.js").then(function (m) { m.triggerAutoSync(); });

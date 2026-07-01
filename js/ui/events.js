@@ -2,7 +2,7 @@
    浮光剧场 · Events
    ============================================================ */
 
-import { state, settings, el, getStory, getChapter, touchStory, saveState, saveSettings, createStoryData, isPristineStory, applyReaderSettings } from "../core/state.js";
+import { state, settings, el, getStory, getChapter, touchStory, saveState, saveSettings, createStoryData, isPristineStory, applyReaderSettings, loadState } from "../core/state.js";
 import { uid, nowIso, toast, setBusy, tryRepairJson } from "../core/utils.js";
 import { renderAll, renderStory, renderStoryList, renderChapterList, renderControls, renderMemory, renderBranches, segmentHtml } from "./renderer.js";
 import { openSettings, saveSettingsForm, syncTtsProviderFields, openSegmentEditor, saveSegmentEdit, createUndoSnapshot, undoLastChange } from "./dialogs.js";
@@ -15,6 +15,7 @@ import { openRelationGraph, closeRelationGraph } from "./relation-graph.js";
 import { streamCompletion } from "../core/api.js";
 import { pingSyncServer, generateSyncToken, runSync } from "../core/sync.js";
 import { parseInlineSpeechTrack, stripVoiceMarkers, buildSpeechAnnotationInput, parseSpeechAnnotation } from "../core/speech-track.js";
+import { getAllStories, saveStory, deleteStory as dbDeleteStory } from "../core/db.js";
 
 function isReaderNearBottom() {
   return el.readerViewport.scrollHeight - el.readerViewport.scrollTop - el.readerViewport.clientHeight < 20;
@@ -2133,6 +2134,113 @@ export function bindEvents() {
     });
   }
 
+  // Recycle Bin Event Listeners
+  if (el.trashList) {
+    el.trashList.addEventListener("click", function (event) {
+      var restoreBtn = event.target.closest("[data-trash-action='restore']");
+      var purgeBtn = event.target.closest("[data-trash-action='purge']");
+      
+      if (restoreBtn) {
+        var restoreId = restoreBtn.dataset.storyId;
+        getAllStories().then(function (all) {
+          var story = all.find(function (s) { return s.id === restoreId; });
+          if (story) {
+            story.trash = false;
+            delete story.deletedAt;
+            story.updatedAt = new Date().toISOString();
+            return saveStory(story).then(function () {
+              // Remove from delete queue if queued
+              var deletedIds = [];
+              try {
+                deletedIds = JSON.parse(localStorage.getItem("floating-story-studio-deleted-ids")) || [];
+              } catch (_) {}
+              deletedIds = deletedIds.filter(function (dId) { return dId !== restoreId; });
+              localStorage.setItem("floating-story-studio-deleted-ids", JSON.stringify(deletedIds));
+              
+              // Add back to active state stories list
+              state.stories.push(story);
+              state.activeStoryId = story.id;
+              state.activeChapterId = story.chapters[0] ? story.chapters[0].id : "";
+              
+              saveState();
+              renderAll();
+              toast(el.toast, "已还原故事 「" + story.title + "」");
+              
+              // Switch back to shelf tab
+              var tab = document.querySelector("[data-lib-tab='stories']");
+              if (tab) tab.click();
+              
+              // Auto sync
+              import("../core/sync.js").then(function (m) { m.triggerAutoSync(); });
+            });
+          }
+        }).catch(function (err) {
+          toast(el.toast, "还原故事失败: " + err.message);
+        });
+      }
+      
+      if (purgeBtn) {
+        var purgeId = purgeBtn.dataset.storyId;
+        if (confirm("确定要彻底删除该故事吗？此操作不可撤销，且会抹去云端备份。")) {
+          dbDeleteStory(purgeId).then(function () {
+            // Queue deletion for Cloud Sync
+            var deletedIds = [];
+            try {
+              deletedIds = JSON.parse(localStorage.getItem("floating-story-studio-deleted-ids")) || [];
+            } catch (_) {}
+            if (deletedIds.indexOf(purgeId) === -1) {
+              deletedIds.push(purgeId);
+              localStorage.setItem("floating-story-studio-deleted-ids", JSON.stringify(deletedIds));
+            }
+            
+            renderAll();
+            toast(el.toast, "故事已彻底删除");
+            
+            // Auto sync
+            import("../core/sync.js").then(function (m) { m.triggerAutoSync(); });
+          }).catch(function (err) {
+            toast(el.toast, "彻底删除失败: " + err.message);
+          });
+        }
+      }
+    });
+  }
+  
+  if (el.emptyTrashBtn) {
+    el.emptyTrashBtn.addEventListener("click", function () {
+      if (confirm("确定要清空回收站吗？此操作会彻底抹去所有删除的小说及云端备份。")) {
+        getAllStories().then(function (all) {
+          var trashStories = all.filter(function (s) { return s.trash; });
+          if (trashStories.length === 0) return;
+          
+          var deletedIds = [];
+          try {
+            deletedIds = JSON.parse(localStorage.getItem("floating-story-studio-deleted-ids")) || [];
+          } catch (_) {}
+          
+          var promises = trashStories.map(function (ts) {
+            var id = ts.id;
+            if (deletedIds.indexOf(id) === -1) {
+              deletedIds.push(id);
+            }
+            return dbDeleteStory(id);
+          });
+          
+          return Promise.all(promises).then(function () {
+            localStorage.setItem("floating-story-studio-deleted-ids", JSON.stringify(deletedIds));
+            renderAll();
+            toast(el.toast, "回收站已清空");
+            
+            // Auto sync
+            import("../core/sync.js").then(function (m) { m.triggerAutoSync(); });
+          });
+        }).catch(function (err) {
+          toast(el.toast, "清空回收站失败: " + err.message);
+        });
+      }
+    });
+  }
+
   // Library Tabs Switching
   document.querySelectorAll("[data-lib-tab]").forEach(function (button) {
     button.addEventListener("click", function () {
@@ -2145,4 +2253,17 @@ export function bindEvents() {
   var defaultTabKey = state.activeStoryId ? "chapters" : "stories";
   var defaultTab = document.querySelector("[data-lib-tab='" + defaultTabKey + "']");
   if (defaultTab) defaultTab.click();
+
+  // Multi-tab sync coordination via BroadcastChannel
+  try {
+    var syncChannel = new BroadcastChannel("story-studio-sync");
+    syncChannel.addEventListener("message", function (event) {
+      if (event.data && event.data.type === "sync-complete") {
+        console.log("[Sync] Sync complete broadcast received. Reloading state.");
+        loadState().then(function () {
+          renderAll();
+        });
+      }
+    });
+  } catch (_) {}
 }

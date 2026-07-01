@@ -103,15 +103,31 @@ export function generateSyncToken() {
   });
 }
 
+export function updateSyncIndicator(status, message) {
+  var ind = document.getElementById("syncIndicator");
+  if (!ind) return;
+  if (!settings.syncHost || !settings.syncToken) {
+    ind.setAttribute("data-status", "none");
+    ind.setAttribute("title", "未配置云同步");
+    return;
+  }
+  ind.setAttribute("data-status", status);
+  if (message) {
+    ind.setAttribute("title", message);
+  }
+}
+
 var isSyncing = false;
 
 // Perform a bi-directional synchronization
 export async function runSync() {
   if (isSyncing) return null;
   if (!settings.syncHost || !settings.syncToken) {
+    updateSyncIndicator("none");
     return null; // Sync is not configured, fail silently
   }
   
+  updateSyncIndicator("syncing", "正在同步数据...");
   isSyncing = true;
   try {
     // 0. Handle pending deletions
@@ -135,9 +151,10 @@ export async function runSync() {
     }
 
     var localStories = await getAllStories();
+    var activeStories = localStories.filter(function (s) { return !s.trash; });
     
     // 1. Calculate diff
-    var localIndex = localStories.map(function (s) {
+    var localIndex = activeStories.map(function (s) {
       return { id: s.id, title: s.title, updatedAt: s.updatedAt };
     });
     
@@ -146,6 +163,7 @@ export async function runSync() {
     var needPush = diff.needPush || [];
     
     var changed = false;
+    var nowLocal = new Date().toISOString();
     
     // 2. Pull updates from Cloud
     if (needPull.length > 0) {
@@ -154,7 +172,7 @@ export async function runSync() {
         var remoteStory = await syncRequest("/stories/" + meta.id, "GET");
         
         // Conflict Check:
-        var local = localStories.find(function (s) { return s.id === remoteStory.id; });
+        var local = activeStories.find(function (s) { return s.id === remoteStory.id; });
         if (local) {
           var hasLocalMod = local.updatedAt > (local.syncedAt || "");
           var isCloudNewer = remoteStory.updatedAt > (local.syncedAt || "");
@@ -162,7 +180,7 @@ export async function runSync() {
             // Conflict detected! Ask user
             var choice = await showConflictDialog(local.title, local.updatedAt, remoteStory.updatedAt);
             if (choice === "cloud") {
-              // Backup local copy as a separate story
+              // Backup local copy as a separate story (remains active but renamed)
               var backup = JSON.parse(JSON.stringify(local));
               backup.id = uid("story");
               backup.title = (backup.title || "未命名故事") + " (冲突备份 " + new Date().toLocaleDateString() + ")";
@@ -170,28 +188,29 @@ export async function runSync() {
               await saveStory(backup);
               
               // Apply remote
+              remoteStory.syncedAt = nowLocal;
               await saveStory(remoteStory);
               changed = true;
             } else if (choice === "local") {
-              // Force push local to cloud
-              var res = await syncRequest("/sync/push", "POST", {
-                stories: [local],
-                settings: settings
+              // Force push local to cloud (without settings)
+              await syncRequest("/sync/push", "POST", {
+                stories: [local]
               });
-              var now = (res && res.pushedAt) || new Date().toISOString();
-              local.syncedAt = now;
+              local.syncedAt = nowLocal;
               await saveStory(local);
             } else {
               // cancel - skip
               continue;
             }
           } else {
-            // Normal pull
+            // Normal pull (set syncedAt to local clock to prevent timezone mismatch)
+            remoteStory.syncedAt = nowLocal;
             await saveStory(remoteStory);
             changed = true;
           }
         } else {
           // New story from cloud
+          remoteStory.syncedAt = nowLocal;
           await saveStory(remoteStory);
           changed = true;
         }
@@ -207,37 +226,57 @@ export async function runSync() {
       var verifiedPush = [];
       var deletedLocalCount = 0;
       
+      // Safety lock: if the cloud index is empty, but we have previously synced local stories,
+      // we assume a cloud reset and treat them all as new local stories to push instead of deleting them.
+      var isCloudIndexEmpty = (needPull.length === 0 && needPush.length === activeStories.length);
+      var hasPreviouslySyncedLocal = activeStories.some(function (s) { return s.syncedAt; });
+      var safetyLockTriggered = isCloudIndexEmpty && hasPreviouslySyncedLocal;
+      
       for (var k = 0; k < pushStories.length; k++) {
         var s = pushStories[k];
-        if (s.syncedAt) {
+        if (s.syncedAt && !safetyLockTriggered) {
           // Previously synced, but now missing in cloud -> deleted on other device!
-          var index = state.stories.findIndex(function (item) { return item.id === s.id; });
-          if (index >= 0) {
-            state.stories.splice(index, 1);
-            if (state.activeStoryId === s.id) {
-              var nextStory = state.stories[Math.min(index, state.stories.length - 1)] || null;
-              state.activeStoryId = nextStory ? nextStory.id : "";
-              state.activeChapterId = nextStory && nextStory.chapters[0] ? nextStory.chapters[0].id : "";
+          var hasLocalModSinceLastSync = s.updatedAt > s.syncedAt;
+          if (hasLocalModSinceLastSync) {
+            // Local has newer changes that were not pushed yet. Treat as new local and push.
+            delete s.syncedAt;
+            await saveStory(s);
+            verifiedPush.push(s);
+            console.warn("[Sync] Kept local story because it has un-synced modifications: " + s.title);
+          } else {
+            // No local modifications, safe to propagate remote deletion (soft-delete to Recycle Bin)
+            s.trash = true;
+            s.deletedAt = nowLocal;
+            s.updatedAt = nowLocal;
+            await saveStory(s);
+            
+            var index = state.stories.findIndex(function (item) { return item.id === s.id; });
+            if (index >= 0) {
+              state.stories.splice(index, 1);
+              if (state.activeStoryId === s.id) {
+                var nextStory = state.stories[Math.min(index, state.stories.length - 1)] || null;
+                state.activeStoryId = nextStory ? nextStory.id : "";
+                state.activeChapterId = nextStory && nextStory.chapters[0] ? nextStory.chapters[0].id : "";
+              }
             }
+            deletedLocalCount++;
+            changed = true;
+            console.warn("[Sync] Local story soft-deleted (Recycle Bin) due to remote deletion: " + s.title);
           }
-          await dbDeleteStory(s.id);
-          deletedLocalCount++;
-          changed = true;
-          console.warn("[Sync] Local story deleted due to remote deletion propagation: " + s.title);
         } else {
-          // Brand new story -> push to cloud
+          // Brand new story or safety lock active -> push to cloud
           verifiedPush.push(s);
         }
       }
       
       if (deletedLocalCount > 0) {
         ensureActiveSelection();
+        toast(el.toast, "同步完成：已将 " + deletedLocalCount + " 个在其他设备删除的故事移入回收站");
       }
       
       if (verifiedPush.length > 0) {
         var res = await syncRequest("/sync/push", "POST", {
-          stories: verifiedPush,
-          settings: settings
+          stories: verifiedPush
         });
         
         var now = (res && res.pushedAt) || new Date().toISOString();
@@ -277,10 +316,16 @@ export async function runSync() {
     
     if (changed) {
       renderAll();
+      try {
+        var channel = new BroadcastChannel("story-studio-sync");
+        channel.postMessage({ type: "sync-complete" });
+      } catch (_) {}
     }
     
+    updateSyncIndicator("synced", "同步完成。上次同步: " + new Date().toLocaleTimeString());
     return { pulledCount: needPull.length, pushedCount: needPush.length };
   } catch (error) {
+    updateSyncIndicator("failed", "同步失败: " + (error.message || error));
     console.error("同步失败:", error);
     throw error;
   } finally {

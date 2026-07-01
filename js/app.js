@@ -7,7 +7,7 @@ import { populateVoices } from "./core/tts.js";
 import { renderAll } from "./ui/renderer.js";
 import { bindEvents } from "./ui/events.js";
 import { initCustomSelects, syncAll } from "./ui/custom-select.js";
-import { runSync } from "./core/sync.js";
+import { runSync, updateSyncIndicator } from "./core/sync.js";
 
 var PANEL_STATE_KEY = "floating-story-studio-panels-v1";
 
@@ -184,6 +184,7 @@ function bindLiquidGlass() {
 async function init() {
   cacheElements();
   await loadState();
+  updateSyncIndicator("synced", "已加载本地数据。");
   resetMemoryCardState();
   restoreDesktopPanelState();
   initCustomSelects();

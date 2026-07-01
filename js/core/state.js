@@ -67,7 +67,8 @@ var ids = [
   "contextMenu",
   "generateCommentsBtn", "commentSheet", "commentSheetBackdrop", "commentSheetBody", "commentSheetTitle", "commentSheetClose", "composerModeHint",
   "commentGenSheet", "commentGenSheetBackdrop", "commentGenSheetClose", "commentGenChapter", "commentGenStartBtn", "commentGenModeTabs", "commentGenAmountTabs", "commentGenHint",
-  "syncHost", "syncToken", "copySyncTokenBtn", "genSyncTokenBtn", "syncPingBtn", "syncNowBtn"
+  "syncHost", "syncToken", "copySyncTokenBtn", "genSyncTokenBtn", "syncPingBtn", "syncNowBtn",
+  "trashList", "emptyTrashBtn", "syncIndicator"
 ];
 
 export function cacheElements() {
@@ -171,7 +172,8 @@ export async function loadState() {
     }
   } else {
     try {
-      state.stories = await getAllStories();
+      var all = await getAllStories();
+      state.stories = all.filter(function (s) { return !s.trash; });
       if (activeIds) {
         state.activeStoryId = activeIds.activeStoryId || "";
         state.activeChapterId = activeIds.activeChapterId || "";

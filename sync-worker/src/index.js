@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Story Studio Sync Worker
  * Cloudflare Worker for cross-device story synchronization
  *
@@ -7,7 +7,7 @@
  *
  * KV Key 结构：
  *   token:{token}:created          → 创建时间（用于校验 token 有效性）
- *   {token}:index                  → 故事索引 JSON [{id, title, updatedAt, syncedAt}]
+ *   {token}:meta:{storyId}         → 故事元数据 JSON，含 metadata 选项，用于快速 list() 组装索引
  *   {token}:story:{storyId}        → 单个故事完整 JSON
  *   {token}:settings               → 用户设置 JSON（不含 apiKey / ttsKey）
  */
@@ -38,6 +38,19 @@ async function generateToken() {
   return Array.from(array, function (b) {
     return b.toString(16).padStart(2, "0");
   }).join("");
+}
+
+/* ---- 获取云端故事元数据索引列表 ---- */
+async function getCloudIndex(env, syncToken) {
+  var list = await env.SYNC_KV.list({ prefix: syncToken + ":meta:" });
+  var index = [];
+  for (var i = 0; i < list.keys.length; i++) {
+    var keyInfo = list.keys[i];
+    if (keyInfo.metadata) {
+      index.push(keyInfo.metadata);
+    }
+  }
+  return index;
 }
 
 /* ---- 主入口 ---- */
@@ -80,14 +93,14 @@ export default {
 
       /* 健康检查 / Token 验证 */
       if (path === "/ping") {
-        var index = (await env.SYNC_KV.get(syncToken + ":index", "json")) || [];
-        return json({ ok: true, tokenCreatedAt: tokenCreated, storyCount: index.length });
+        var cloudIndex = await getCloudIndex(env, syncToken);
+        return json({ ok: true, tokenCreatedAt: tokenCreated, storyCount: cloudIndex.length });
       }
 
       /* 故事列表（仅元数据） */
       if (path === "/stories" && method === "GET") {
-        var index = (await env.SYNC_KV.get(syncToken + ":index", "json")) || [];
-        return json(index);
+        var cloudIndex = await getCloudIndex(env, syncToken);
+        return json(cloudIndex);
       }
 
       /* 单个故事 CRUD */
@@ -107,19 +120,14 @@ export default {
           var story = Object.assign({}, body, { syncedAt: now });
           await env.SYNC_KV.put(syncToken + ":story:" + storyId, JSON.stringify(story));
 
-          var index = (await env.SYNC_KV.get(syncToken + ":index", "json")) || [];
-          var existing = index.findIndex(function (s) { return s.id === storyId; });
           var meta = { id: storyId, title: story.title || "未命名", updatedAt: story.updatedAt || now, syncedAt: now };
-          if (existing >= 0) index[existing] = meta;
-          else index.push(meta);
-          await env.SYNC_KV.put(syncToken + ":index", JSON.stringify(index));
+          await env.SYNC_KV.put(syncToken + ":meta:" + storyId, JSON.stringify(meta), { metadata: meta });
           return json({ ok: true, syncedAt: now });
         }
 
         if (method === "DELETE") {
           await env.SYNC_KV.delete(syncToken + ":story:" + storyId);
-          var index = (await env.SYNC_KV.get(syncToken + ":index", "json")) || [];
-          await env.SYNC_KV.put(syncToken + ":index", JSON.stringify(index.filter(function (s) { return s.id !== storyId; })));
+          await env.SYNC_KV.delete(syncToken + ":meta:" + storyId);
           return json({ ok: true });
         }
       }
@@ -141,12 +149,12 @@ export default {
 
       /* 全量拉取（所有故事 + 设置） */
       if (path === "/sync/pull" && method === "GET") {
-        var index = (await env.SYNC_KV.get(syncToken + ":index", "json")) || [];
+        var cloudIndex = await getCloudIndex(env, syncToken);
         var settings = (await env.SYNC_KV.get(syncToken + ":settings", "json")) || {};
         var stories = await Promise.all(
-          index.map(function (meta) { return env.SYNC_KV.get(syncToken + ":story:" + meta.id, "json"); })
+          cloudIndex.map(function (meta) { return env.SYNC_KV.get(syncToken + ":story:" + meta.id, "json"); })
         );
-        return json({ stories: stories.filter(Boolean), settings: settings, index: index, pulledAt: new Date().toISOString() });
+        return json({ stories: stories.filter(Boolean), settings: settings, index: cloudIndex, pulledAt: new Date().toISOString() });
       }
 
       /* 批量推送（最后写入胜，以 updatedAt 比较） */
@@ -155,19 +163,17 @@ export default {
         var stories = body.stories || [];
         var newSettings = body.settings || null;
         var now = new Date().toISOString();
-        var index = (await env.SYNC_KV.get(syncToken + ":index", "json")) || [];
 
         await Promise.all(stories.map(async function (story) {
-          var stored = await env.SYNC_KV.get(syncToken + ":story:" + story.id, "json");
-          if (!stored || (story.updatedAt || "") >= (stored.updatedAt || "")) {
+          var storedMetaKey = syncToken + ":meta:" + story.id;
+          var storedMeta = await env.SYNC_KV.get(storedMetaKey, "json");
+          if (!storedMeta || (story.updatedAt || "") >= (storedMeta.updatedAt || "")) {
             await env.SYNC_KV.put(syncToken + ":story:" + story.id, JSON.stringify(Object.assign({}, story, { syncedAt: now })));
-            var idx = index.findIndex(function (s) { return s.id === story.id; });
             var meta = { id: story.id, title: story.title || "未命名", updatedAt: story.updatedAt || now, syncedAt: now };
-            if (idx >= 0) index[idx] = meta; else index.push(meta);
+            await env.SYNC_KV.put(storedMetaKey, JSON.stringify(meta), { metadata: meta });
           }
         }));
 
-        await env.SYNC_KV.put(syncToken + ":index", JSON.stringify(index));
         if (newSettings) {
           var safe = Object.assign({}, newSettings);
           delete safe.apiKey;
@@ -181,7 +187,7 @@ export default {
       if (path === "/sync/diff" && method === "POST") {
         var body = await request.json();
         var localIndex = body.localIndex || [];
-        var cloudIndex = (await env.SYNC_KV.get(syncToken + ":index", "json")) || [];
+        var cloudIndex = await getCloudIndex(env, syncToken);
 
         var localMap = {};
         localIndex.forEach(function (s) { localMap[s.id] = s.updatedAt; });
