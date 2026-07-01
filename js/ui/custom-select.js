@@ -129,6 +129,16 @@ var CustomSelect = (function () {
 
   CustomSelect.prototype.open = function () {
     closeActive();
+    
+    // If the select triggers inside a dialog, append dropdown inside it
+    // to bypass the browser's modal pointer-blocking boundary.
+    var activeDialog = this.trigger.closest("dialog");
+    if (activeDialog) {
+      activeDialog.appendChild(this.dropdown);
+    } else {
+      document.body.appendChild(this.dropdown);
+    }
+
     if (this._usePopover) {
       try { this.dropdown.showPopover(); } catch (_) {}
     }
@@ -145,28 +155,50 @@ var CustomSelect = (function () {
     this.dropdown.classList.remove("cs-open");
     this.trigger.setAttribute("aria-expanded", "false");
     if (activeDropdown === this.dropdown) activeDropdown = null;
+    
+    // Restore back to body to prevent lingering dropdowns inside dialog markup when hidden
+    if (this.dropdown.parentNode !== document.body) {
+      document.body.appendChild(this.dropdown);
+    }
   };
 
   CustomSelect.prototype.positionDropdown = function () {
     var triggerRect = this.trigger.getBoundingClientRect();
     var dropdown = this.dropdown;
     var viewportHeight = window.innerHeight;
+    
+    // If it's NOT a popover (fallback absolute div) and is inside a dialog,
+    // we must subtract the dialog offsets because the dialog becomes its containing block.
+    // If it IS a popover, it goes to the top-layer (viewport-relative), so offset remains 0.
+    var parentDialog = dropdown.closest("dialog");
+    var offsetLeft = 0;
+    var offsetTop = 0;
+    if (parentDialog && !this._usePopover) {
+      var parentRect = parentDialog.getBoundingClientRect();
+      offsetLeft = parentRect.left;
+      offsetTop = parentRect.top;
+    }
+
     var spaceBelow = viewportHeight - triggerRect.bottom - 8;
     var spaceAbove = triggerRect.top - 8;
 
-    // Always fixed — works correctly whether in top-layer (popover) or body
     dropdown.style.position = "fixed";
-    dropdown.style.left = triggerRect.left + "px";
+    dropdown.style.left = (triggerRect.left - offsetLeft) + "px";
     dropdown.style.width = Math.max(triggerRect.width, 140) + "px";
 
     if (spaceBelow >= 180 || spaceBelow >= spaceAbove) {
-      dropdown.style.top = triggerRect.bottom + 6 + "px";
+      dropdown.style.top = (triggerRect.bottom - offsetTop) + 6 + "px";
       dropdown.style.bottom = "auto";
       dropdown.style.maxHeight = Math.min(spaceBelow, 280) + "px";
       dropdown.style.transformOrigin = "center top";
     } else {
       dropdown.style.top = "auto";
-      dropdown.style.bottom = viewportHeight - triggerRect.top + 6 + "px";
+      if (parentDialog && !this._usePopover) {
+        var parentRect = parentDialog.getBoundingClientRect();
+        dropdown.style.bottom = (parentRect.bottom - triggerRect.top + 6) + "px";
+      } else {
+        dropdown.style.bottom = (viewportHeight - triggerRect.top + 6) + "px";
+      }
       dropdown.style.maxHeight = Math.min(spaceAbove, 280) + "px";
       dropdown.style.transformOrigin = "center bottom";
     }

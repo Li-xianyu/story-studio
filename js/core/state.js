@@ -28,6 +28,7 @@ export var settings = {
   apiKey: "",
   apiModel: "deepseek-chat",
   temperature: 0.9,
+  memoryContextTokens: 128000,
   ttsProvider: "system",
   systemVoice: "",
   systemPitch: 1,
@@ -41,6 +42,8 @@ export var settings = {
   readerFontSize: "18",
   readerLineHeight: "2",
   readerIndent: true,
+  syncHost: "",
+  syncToken: "",
 };
 
 export var el = {};
@@ -51,7 +54,7 @@ var ids = [
   "statusText", "setupDialog", "setupForm", "setupTitle", "setupPrompt", "setupRole", "setupGenre", "setupPov",
   "settingsDialog", "settingsForm", "memoryDialog", "memoryDialogTitle", "memoryEditor", "memoryAiInput", "memoryAiBtn", "toast",
   "povDisplay", "lengthSelect", "styleInput", "playerRoleInput", "premiseInput", "autoContinueToggle", "autoTtsToggle",
-  "speechRate", "playbackTitle", "playbackProgress", "ttsPlayBtn", "playerBar", "audioPanelToggle", "apiHost", "apiKey", "apiModel",
+  "speechRate", "playbackTitle", "playbackProgress", "ttsPlayBtn", "playerBar", "audioPanelToggle", "apiHost", "apiKey", "apiModel", "memoryContextTokens",
   "temperature", "ttsProvider", "systemVoice", "systemPitch", "ttsHost", "ttsKey", "ttsModel",
   "ttsNarratorVoice", "ttsMaleVoice", "ttsFemaleVoice",
   "systemTtsFields", "mimoTtsFields", "settingsStatus", "importInput",
@@ -63,7 +66,8 @@ var ids = [
   "readerFontSize", "readerLineHeight", "readerIndentToggle", "scrollToBottomBtn",
   "contextMenu",
   "generateCommentsBtn", "commentSheet", "commentSheetBackdrop", "commentSheetBody", "commentSheetTitle", "commentSheetClose", "composerModeHint",
-  "commentGenSheet", "commentGenSheetBackdrop", "commentGenSheetClose", "commentGenChapter", "commentGenStartBtn", "commentGenModeTabs", "commentGenAmountTabs", "commentGenHint"
+  "commentGenSheet", "commentGenSheetBackdrop", "commentGenSheetClose", "commentGenChapter", "commentGenStartBtn", "commentGenModeTabs", "commentGenAmountTabs", "commentGenHint",
+  "syncHost", "syncToken", "copySyncTokenBtn", "genSyncTokenBtn", "syncPingBtn", "syncPullBtn", "syncPushBtn"
 ];
 
 export function cacheElements() {
@@ -230,7 +234,9 @@ export function saveState() {
   }));
   var activeStory = getStory();
   if (activeStory) {
-    saveStory(activeStory).catch(function (err) {
+    saveStory(activeStory).then(function () {
+      import("./sync.js").then(function (m) { m.triggerAutoSync(); });
+    }).catch(function (err) {
       console.error("保存故事到 IndexedDB 失败", err);
     });
   }

@@ -2,19 +2,14 @@
    浮光剧场 · Memory / System Prompt (Refactored)
    ============================================================ */
 
-import { state, el, getStory, getChapter, touchStory } from "../core/state.js";
-import { toast, escapeHtml, setBusy } from "../core/utils.js";
+import { state, settings, el, getStory, getChapter, touchStory } from "../core/state.js";
+import { toast, escapeHtml, setBusy, tryRepairJson } from "../core/utils.js";
 import { streamCompletion } from "../core/api.js";
 import { renderMemory } from "../ui/renderer.js";
 
-/* ---- 常量 ---- */
-
-var GLOBAL_KEYS = ["worldState", "characters", "plotThreads"];
-var FIELD_LABELS = {
-  worldState: "世界状态", characters: "人物关系", plotThreads: "剧情伏笔"
-};
 
 /* ---- System Prompt ---- */
+
 
 export function buildSystemPrompt(story) {
   function buildSummaryBlock() {
@@ -108,13 +103,72 @@ export function getLengthMaxTokens(length) {
 }
 
 export function recentNarrative(chapter) {
-  return chapter.segments.slice(-12).map(function (segment) {
+  return chapter.segments.map(function (segment) {
     return segment.content;
-  }).join("\n\n").slice(-18000);
+  }).join("\n\n");
+}
+
+function getMemoryContextChars() {
+  var tokens = Number(settings.memoryContextTokens) || 128000;
+  // 预留 8000 token 给 prompt 模板、已有记忆和 AI 输出；1 token ≈ 1.5 中文字符
+  return Math.max(4000, Math.floor((tokens - 8000) * 1.5));
+}
+
+function chunkSegments(chapter, maxChars) {
+  var chunks = [];
+  var current = [];
+  var currentLen = 0;
+  chapter.segments.forEach(function (seg) {
+    var text = String(seg.content || "").trim();
+    if (!text) return;
+    if (currentLen + text.length > maxChars && current.length > 0) {
+      chunks.push(current.join("\n\n"));
+      current = [];
+      currentLen = 0;
+    }
+    current.push(text);
+    currentLen += text.length;
+  });
+  if (current.length > 0) {
+    chunks.push(current.join("\n\n"));
+  }
+  return chunks.length ? chunks : [""];
 }
 
 function parseMemoryJson(raw) {
-  return JSON.parse(String(raw || "").replace(/^```json\s*|```$/g, "").trim());
+  var mem = tryRepairJson(String(raw || ""));
+  if (!mem) throw new Error("AI 返回的 JSON 无法解析，请重试");
+  return mem;
+}
+
+function buildChapterExtractPrompt(chapter, chapterIndex, story, oldSummary, chunkText, chunkIndex, totalChunks) {
+  var chRecent = (chunkText != null) ? chunkText : recentNarrative(chapter);
+  var isChunked = totalChunks && totalChunks > 1;
+  
+  var oldWorldState = story.memory.worldState || story.memory.worldConstants || "";
+  var oldPlotThreads = story.memory.plotThreads || story.memory.threads || "";
+  
+  var prompt = [
+    "请分析以下小说正文，为指定章节生成或更新故事记忆。必须返回严格的 JSON 格式数据。",
+    "当前是第 " + chapterIndex + " 章，标题：「" + chapter.title + "」。" + (isChunked ? "（本章正文已拆分为 " + totalChunks + " 块分批处理，当前为第 " + chunkIndex + "/" + totalChunks + " 块，请在已有记忆基础上累积更新，不要遗漏已记录信息。）" : ""),
+    '返回格式：\n{"summary":"本章详细剧情摘要，必须以【第' + chapterIndex + '章】开头","worldState":"完整的当前世界状态、势力格局、常数设定等（若无变化可保持原样，如有变化请更新）","plotThreads":"当前所有未解决的任务、悬念与伏笔（剔除本章已解决的，添加本章新增的）","characters": [{"source": "角色A", "target": "角色B", "relation": "具体关系描述，如青梅竹马、死敌", "mutual": true或false}]}',
+    "",
+    "【重要更新规则】",
+    "1. 你不仅是在归纳本章，更是在维护一份「全局记忆」。",
+    "2. 对于 worldState 和 plotThreads：请综合【已有记忆基础】与【待处理正文】，输出一份最新的、完整的全局文本。不要只写增量！如果本章没有任何相关更新，直接复用已有记忆即可；如果已有记忆的某些设定在本章发生了改变或失效，请在输出中修改或删除它们。",
+    "3. 对于 characters：输出一个 JSON 数组，包含故事中所有重要人物的关系。每个关系对象必须有 source, target, relation, mutual 字段。关系描述必须是 2~4 个字的简短关系词（如：上下级、同僚、同袍、死敌、暗恋等。注意区分身份场合，例如军队/官场请用'上下级'或'属下'，切勿滥用'主仆'），绝对不要写成一大长串句子！不要漏掉旧记忆里依然存在的角色关系。",
+    "请确保返回的是符合上述结构的纯 JSON 文本！",
+    "",
+    "已有记忆基础：\n" + JSON.stringify({
+      chapterSummary: (oldSummary || "").slice(0, 3000),
+      characters: story.memory.characters || [],
+      worldState: oldWorldState.slice(0, 3000),
+      plotThreads: oldPlotThreads.slice(0, 3000),
+    }, null, 2),
+    "故事原始设定：\n" + (story.premise || "无"),
+    "待处理正文：\n" + chRecent,
+  ];
+  return prompt.join("\n\n");
 }
 
 /* ---- 记忆整理轮播标语 ---- */
@@ -168,38 +222,6 @@ async function generateMemoryLabels(story) {
     }
     return null;
   } catch (e) { return null; }
-}
-
-/* ---- 单章记忆增量提取 prompt ---- */
-
-function buildChapterExtractPrompt(chapter, chapterIndex, story, oldSummary) {
-  var chRecent = recentNarrative(chapter);
-  
-  var oldWorldState = story.memory.worldState || story.memory.worldConstants || "";
-  var oldPlotThreads = story.memory.plotThreads || story.memory.threads || "";
-  
-  var prompt = [
-    "请分析以下小说正文，为指定章节生成或更新故事记忆。必须返回严格的 JSON 格式数据。",
-    "当前是第 " + chapterIndex + " 章，标题：「" + chapter.title + "」。",
-    '返回格式：\n{"summary":"本章详细剧情摘要，必须以【第' + chapterIndex + '章】开头","worldState":"完整的当前世界状态、势力格局、常数设定等（若无变化可保持原样，如有变化请更新）","plotThreads":"当前所有未解决的任务、悬念与伏笔（剔除本章已解决的，添加本章新增的）","characters": [{"source": "角色A", "target": "角色B", "relation": "具体关系描述，如青梅竹马、死敌", "mutual": true或false}]}',
-    "",
-    "【重要更新规则】",
-    "1. 你不仅是在归纳本章，更是在维护一份「全局记忆」。",
-    "2. 对于 worldState 和 plotThreads：请综合【已有记忆基础】与【待处理正文】，输出一份最新的、完整的全局文本。不要只写增量！如果本章没有任何相关更新，直接复用已有记忆即可；如果已有记忆的某些设定在本章发生了改变或失效，请在输出中修改或删除它们。",
-    "3. 对于 characters：输出一个 JSON 数组，包含故事中所有重要人物的关系。每个关系对象必须有 source, target, relation, mutual 字段。关系描述必须是 2~4 个字的简短关系词（如：上下级、同僚、同袍、死敌、暗恋等。注意区分身份场合，例如军队/官场请用'上下级'或'属下'，切勿滥用'主仆'），绝对不要写成一大长串句子！不要漏掉旧记忆里依然存在的角色关系。",
-    "请确保返回的是符合上述结构的纯 JSON 文本！",
-    "",
-    "已有记忆基础：\n" + JSON.stringify({
-      chapterSummary: (oldSummary || "").slice(0, 3000),
-      characters: story.memory.characters || [],
-      worldState: oldWorldState.slice(0, 3000),
-      plotThreads: oldPlotThreads.slice(0, 3000),
-    }, null, 2),
-    "故事原始设定：\n" + (story.premise || "无"),
-    "待处理正文：\n" + chRecent,
-  ];
-  if (oldSummary) prompt.push("已有本章旧摘要如下，请在保留核心事实的基础上合并更新：\n" + oldSummary.slice(0, 5000));
-  return prompt.join("\n\n");
 }
 
 /* ---- 整理记忆进度 UI ---- */
@@ -281,58 +303,63 @@ export async function summarizeMemory() {
   });
 
   try {
+    var maxChars = getMemoryContextChars();
     for (var i = 0; i < chaptersToProcess.length; i++) {
       var ch = chaptersToProcess[i];
       var chapterIndex = story.chapters.indexOf(ch) + 1;
-      
-      resetProgressNodes(ch.title || ("第" + chapterIndex + "章"));
-      updateProgressNode("context", "active", "正在提取正文与历史设定...");
-      
-      var oldSummary = story.memory.chapterSummaries[ch.id] || "";
-      var prompt = buildChapterExtractPrompt(ch, chapterIndex, story, oldSummary);
+      var chunks = chunkSegments(ch, maxChars);
 
-      updateProgressNode("context", "completed", "分析完成");
-      updateProgressNode("summary", "active", "AI 正在思考中...");
+      for (var ci = 0; ci < chunks.length; ci++) {
+        var chunkLabel = chunks.length > 1 ? (" · 第" + (ci + 1) + "/" + chunks.length + "块") : "";
+        resetProgressNodes((ch.title || ("第" + chapterIndex + "章")) + chunkLabel);
+        updateProgressNode("context", "active", "正在提取正文与历史设定...");
 
-      var result = "";
-      var step = 0;
+        var oldSummary = story.memory.chapterSummaries[ch.id] || "";
+        var prompt = buildChapterExtractPrompt(ch, chapterIndex, story, oldSummary, chunks[ci], ci + 1, chunks.length);
 
-      await streamCompletion([
-        { role: "system", content: "你是小说连续性编辑，只维护准确的故事状态。请返回 JSON 格式数据。" },
-        { role: "user", content: prompt }
-      ], function (delta) { 
-        result += delta; 
-        if (step === 0 && (result.includes('"summary"') || result.length > 50)) {
-          step = 1;
-          updateProgressNode("summary", "active", "正在生成核心剧情...");
+        updateProgressNode("context", "completed", "分析完成");
+        updateProgressNode("summary", "active", "AI 正在思考中...");
+
+        var result = "";
+        var step = 0;
+
+        await streamCompletion([
+          { role: "system", content: "你是小说连续性编辑，只维护准确的故事状态。请返回 JSON 格式数据。" },
+          { role: "user", content: prompt }
+        ], function (delta) {
+          result += delta;
+          if (step === 0 && (result.includes('"summary"') || result.length > 50)) {
+            step = 1;
+            updateProgressNode("summary", "active", "正在生成核心剧情...");
+          }
+          if (step === 1 && (result.includes('"characters"') || result.length > 300)) {
+            step = 2;
+            updateProgressNode("summary", "completed", "摘要提炼完成");
+            updateProgressNode("characters", "active", "正在重构人物图谱...");
+          }
+          if (step === 2 && (result.includes('"worldState"') || result.includes('"plotThreads"') || result.length > 800)) {
+            step = 3;
+            updateProgressNode("characters", "completed", "关系网重构完成");
+            updateProgressNode("world", "active", "正在推演世界观与伏笔闭环...");
+          }
+        }, { responseFormat: { type: "json_object" } });
+
+        updateProgressNode("world", "completed", "各项指标更新完成");
+
+        var mem = parseMemoryJson(result);
+
+        if (typeof mem.summary === "string" && mem.summary.trim()) {
+          story.memory.chapterSummaries[ch.id] = mem.summary.trim();
         }
-        if (step === 1 && (result.includes('"characters"') || result.length > 300)) {
-          step = 2;
-          updateProgressNode("summary", "completed", "摘要提炼完成");
-          updateProgressNode("characters", "active", "正在重构人物图谱...");
+        if (typeof mem.worldState === "string" && mem.worldState.trim()) {
+          story.memory.worldState = mem.worldState.trim();
         }
-        if (step === 2 && (result.includes('"worldState"') || result.includes('"plotThreads"') || result.length > 800)) {
-          step = 3;
-          updateProgressNode("characters", "completed", "关系网重构完成");
-          updateProgressNode("world", "active", "正在推演世界观与伏笔闭环...");
+        if (typeof mem.plotThreads === "string" && mem.plotThreads.trim()) {
+          story.memory.plotThreads = mem.plotThreads.trim();
         }
-      }, { responseFormat: { type: "json_object" }});
-
-      updateProgressNode("world", "completed", "各项指标更新完成");
-
-      var mem = parseMemoryJson(result);
-
-      if (typeof mem.summary === "string" && mem.summary.trim()) {
-        story.memory.chapterSummaries[ch.id] = mem.summary.trim();
-      }
-      if (typeof mem.worldState === "string" && mem.worldState.trim()) {
-        story.memory.worldState = mem.worldState.trim();
-      }
-      if (typeof mem.plotThreads === "string" && mem.plotThreads.trim()) {
-        story.memory.plotThreads = mem.plotThreads.trim();
-      }
-      if (Array.isArray(mem.characters)) {
-        story.memory.characters = mem.characters;
+        if (Array.isArray(mem.characters)) {
+          story.memory.characters = mem.characters;
+        }
       }
 
       ch.memoryCommittedAt = new Date().toISOString();
@@ -373,62 +400,67 @@ export async function prepareChapterMemory() {
   });
 
   try {
+    var maxCharsP = getMemoryContextChars();
     for (var si = 0; si < sourceChapters.length; si++) {
       var ch = sourceChapters[si];
       var chapterIndex = story.chapters.indexOf(ch) + 1;
-      
-      resetProgressNodes(ch.title || ("第" + chapterIndex + "章"));
-      updateProgressNode("context", "active", "正在提取正文与历史设定...");
-      
-      var prompt = buildChapterExtractPrompt(ch, chapterIndex, story, story.memory.chapterSummaries[ch.id] || "");
+      var chunks = chunkSegments(ch, maxCharsP);
 
-      updateProgressNode("context", "completed", "分析完成");
-      updateProgressNode("summary", "active", "AI 正在思考中...");
+      for (var ci = 0; ci < chunks.length; ci++) {
+        var chunkLabel = chunks.length > 1 ? (" · 第" + (ci + 1) + "/" + chunks.length + "块") : "";
+        resetProgressNodes((ch.title || ("第" + chapterIndex + "章")) + chunkLabel);
+        updateProgressNode("context", "active", "正在提取正文与历史设定...");
 
-      var result = "";
-      var step = 0;
+        var prompt = buildChapterExtractPrompt(ch, chapterIndex, story, story.memory.chapterSummaries[ch.id] || "", chunks[ci], ci + 1, chunks.length);
 
-      await streamCompletion([
-        { role: "system", content: "你是长篇小说的连续性编辑。请返回 JSON 格式数据。" },
-        { role: "user", content: prompt }
-      ], function (delta) { 
-        result += delta; 
-        if (step === 0 && (result.includes('"summary"') || result.length > 50)) {
-          step = 1;
-          updateProgressNode("summary", "active", "正在生成核心剧情...");
+        updateProgressNode("context", "completed", "分析完成");
+        updateProgressNode("summary", "active", "AI 正在思考中...");
+
+        var result = "";
+        var step = 0;
+
+        await streamCompletion([
+          { role: "system", content: "你是长篇小说的连续性编辑。请返回 JSON 格式数据。" },
+          { role: "user", content: prompt }
+        ], function (delta) {
+          result += delta;
+          if (step === 0 && (result.includes('"summary"') || result.length > 50)) {
+            step = 1;
+            updateProgressNode("summary", "active", "正在生成核心剧情...");
+          }
+          if (step === 1 && (result.includes('"characters"') || result.length > 300)) {
+            step = 2;
+            updateProgressNode("summary", "completed", "摘要提炼完成");
+            updateProgressNode("characters", "active", "正在重构人物图谱...");
+          }
+          if (step === 2 && (result.includes('"worldState"') || result.includes('"plotThreads"') || result.length > 800)) {
+            step = 3;
+            updateProgressNode("characters", "completed", "关系网重构完成");
+            updateProgressNode("world", "active", "正在推演世界观与伏笔闭环...");
+          }
+        }, {
+          maxTokens: 2000,
+          temperature: 0.2,
+          thinking: "disabled",
+          responseFormat: { type: "json_object" }
+        });
+
+        updateProgressNode("world", "completed", "各项指标更新完成");
+
+        var mem = parseMemoryJson(result);
+
+        if (typeof mem.summary === "string" && mem.summary.trim()) {
+          story.memory.chapterSummaries[ch.id] = mem.summary.trim();
         }
-        if (step === 1 && (result.includes('"characters"') || result.length > 300)) {
-          step = 2;
-          updateProgressNode("summary", "completed", "摘要提炼完成");
-          updateProgressNode("characters", "active", "正在重构人物图谱...");
+        if (typeof mem.worldState === "string" && mem.worldState.trim()) {
+          story.memory.worldState = mem.worldState.trim();
         }
-        if (step === 2 && (result.includes('"worldState"') || result.includes('"plotThreads"') || result.length > 800)) {
-          step = 3;
-          updateProgressNode("characters", "completed", "关系网重构完成");
-          updateProgressNode("world", "active", "正在推演世界观与伏笔闭环...");
+        if (typeof mem.plotThreads === "string" && mem.plotThreads.trim()) {
+          story.memory.plotThreads = mem.plotThreads.trim();
         }
-      }, {
-        maxTokens: 2000,
-        temperature: 0.2,
-        thinking: "disabled",
-        responseFormat: { type: "json_object" }
-      });
-
-      updateProgressNode("world", "completed", "各项指标更新完成");
-
-      var mem = parseMemoryJson(result);
-
-      if (typeof mem.summary === "string" && mem.summary.trim()) {
-        story.memory.chapterSummaries[ch.id] = mem.summary.trim();
-      }
-      if (typeof mem.worldState === "string" && mem.worldState.trim()) {
-        story.memory.worldState = mem.worldState.trim();
-      }
-      if (typeof mem.plotThreads === "string" && mem.plotThreads.trim()) {
-        story.memory.plotThreads = mem.plotThreads.trim();
-      }
-      if (Array.isArray(mem.characters)) {
-        story.memory.characters = mem.characters;
+        if (Array.isArray(mem.characters)) {
+          story.memory.characters = mem.characters;
+        }
       }
 
       ch.memoryCommittedAt = new Date().toISOString();

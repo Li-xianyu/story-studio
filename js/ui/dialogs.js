@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    娴厜鍓у満 路 Dialogs
    ============================================================ */
 
@@ -14,8 +14,8 @@ export function openSettings(message) {
 }
 
 export function fillSettingsForm() {
-  ["apiHost", "apiKey", "apiModel", "temperature", "ttsProvider", "systemPitch", "ttsHost", "ttsKey", "ttsModel",
-    "ttsNarratorVoice", "ttsMaleVoice", "ttsFemaleVoice"].forEach(function (key) {
+  ["apiHost", "apiKey", "apiModel", "temperature", "memoryContextTokens", "ttsProvider", "systemPitch", "ttsHost", "ttsKey", "ttsModel",
+    "ttsNarratorVoice", "ttsMaleVoice", "ttsFemaleVoice", "syncHost", "syncToken"].forEach(function (key) {
     if (el[key]) el[key].value = settings[key];
   });
   populateVoices();
@@ -36,11 +36,12 @@ export function syncTtsProviderFields() {
 
 export function saveSettingsForm() {
   ["apiHost", "apiKey", "apiModel", "ttsProvider", "ttsHost", "ttsKey", "ttsModel",
-    "ttsNarratorVoice", "ttsMaleVoice", "ttsFemaleVoice"].forEach(function (key) {
+    "ttsNarratorVoice", "ttsMaleVoice", "ttsFemaleVoice", "syncHost", "syncToken"].forEach(function (key) {
     settings[key] = el[key].value.trim();
   });
   settings.ttsVoice = settings.ttsNarratorVoice;
   settings.temperature = Number(el.temperature.value) || 0.9;
+  settings.memoryContextTokens = Number(el.memoryContextTokens.value) || 128000;
   settings.systemVoice = el.systemVoice.value;
   settings.systemPitch = Number(el.systemPitch.value) || 1;
   saveSettings();
@@ -82,11 +83,24 @@ export function createUndoSnapshot(message) {
     chapterId: state.activeChapterId,
   };
   el.undoText.textContent = message || "\u5df2\u4fee\u6539\u6b63\u6587";
+  
+  var activeDialog = document.querySelector("dialog[open]");
+  if (activeDialog) {
+    activeDialog.appendChild(el.undoBar);
+  } else {
+    document.body.appendChild(el.undoBar);
+  }
+  
   el.undoBar.classList.add("show");
   clearTimeout(state.undoTimer);
   state.undoTimer = setTimeout(function () {
     state.undoSnapshot = null;
     el.undoBar.classList.remove("show");
+    setTimeout(function () {
+      if (!el.undoBar.classList.contains("show") && el.undoBar.parentNode !== document.body) {
+        document.body.appendChild(el.undoBar);
+      }
+    }, 350);
   }, 8000);
 }
 

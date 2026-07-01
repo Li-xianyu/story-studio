@@ -7,6 +7,7 @@ import { populateVoices } from "./core/tts.js";
 import { renderAll } from "./ui/renderer.js";
 import { bindEvents } from "./ui/events.js";
 import { initCustomSelects, syncAll } from "./ui/custom-select.js";
+import { runSync } from "./core/sync.js";
 
 var PANEL_STATE_KEY = "floating-story-studio-panels-v1";
 
@@ -188,6 +189,9 @@ async function init() {
   initCustomSelects();
   bindEvents();
   renderAll();
+  runSync().catch(function (err) {
+    console.warn("[Sync] Auto sync on startup failed:", err);
+  });
   observeAppTheme();
   populateVoices();
   syncAll();

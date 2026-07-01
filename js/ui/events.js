@@ -13,6 +13,7 @@ import { summarizeMemory, prepareChapterMemory, recentNarrative, looksNarrativeI
 import { exportStory, importFile } from "../story/import-export.js";
 import { openRelationGraph, closeRelationGraph } from "./relation-graph.js";
 import { streamCompletion } from "../core/api.js";
+import { pingSyncServer, generateSyncToken, runSync } from "../core/sync.js";
 import { parseInlineSpeechTrack, stripVoiceMarkers, buildSpeechAnnotationInput, parseSpeechAnnotation } from "../core/speech-track.js";
 
 function isReaderNearBottom() {
@@ -1887,6 +1888,94 @@ export function bindEvents() {
     });
   });
   el.ttsProvider.addEventListener("change", syncTtsProviderFields);
+
+  el.copySyncTokenBtn.addEventListener("click", function () {
+    var val = el.syncToken.value.trim();
+    if (!val) return toast(el.toast, "没有可复制的 Token");
+    navigator.clipboard.writeText(val).then(function () {
+      toast(el.toast, "Token 已复制到剪贴板");
+    }).catch(function () {
+      el.syncToken.select();
+      document.execCommand("copy");
+      toast(el.toast, "Token 已选中，请手动复制");
+    });
+  });
+
+  el.genSyncTokenBtn.addEventListener("click", async function () {
+    var host = el.syncHost.value.trim();
+    if (!host) return toast(el.toast, "请先填写同步服务器地址");
+    var oldHost = settings.syncHost;
+    settings.syncHost = host;
+    el.genSyncTokenBtn.disabled = true;
+    try {
+      var token = await generateSyncToken();
+      el.syncToken.value = token;
+      toast(el.toast, "Token 生成成功并已自动填入");
+    } catch (e) {
+      settings.syncHost = oldHost;
+      toast(el.toast, "生成失败: " + e.message);
+    } finally {
+      el.genSyncTokenBtn.disabled = false;
+    }
+  });
+
+  el.syncPingBtn.addEventListener("click", async function () {
+    var host = el.syncHost.value.trim();
+    var token = el.syncToken.value.trim();
+    if (!host) return toast(el.toast, "请先填写同步服务器地址");
+    if (!token) return toast(el.toast, "请先填写同步凭证 (Token)");
+    
+    var oldHost = settings.syncHost;
+    var oldToken = settings.syncToken;
+    settings.syncHost = host;
+    settings.syncToken = token;
+    el.syncPingBtn.disabled = true;
+    try {
+      await pingSyncServer();
+      toast(el.toast, "连接成功！Token 有效。");
+    } catch (e) {
+      settings.syncHost = oldHost;
+      settings.syncToken = oldToken;
+      toast(el.toast, "连接失败: " + e.message);
+    } finally {
+      el.syncPingBtn.disabled = false;
+    }
+  });
+
+  async function performSyncAction(btn) {
+    var host = el.syncHost.value.trim();
+    var token = el.syncToken.value.trim();
+    if (!host) return toast(el.toast, "请先填写同步服务器地址");
+    if (!token) return toast(el.toast, "请先填写同步凭证 (Token)");
+    
+    saveSettingsForm();
+    
+    btn.disabled = true;
+    var oldText = btn.textContent;
+    btn.textContent = "同步中...";
+    try {
+      var result = await runSync();
+      if (result) {
+        toast(el.toast, "同步完成 (云端拉取 " + result.pulledCount + " 个，本地推送 " + result.pushedCount + " 个)");
+      } else {
+        toast(el.toast, "同步未执行 (配置不完整)");
+      }
+    } catch (e) {
+      toast(el.toast, "同步失败: " + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = oldText;
+    }
+  }
+
+  el.syncPullBtn.addEventListener("click", function () {
+    performSyncAction(el.syncPullBtn);
+  });
+
+  el.syncPushBtn.addEventListener("click", function () {
+    performSyncAction(el.syncPushBtn);
+  });
+
 
   el.settingsForm.addEventListener("submit", function (event) {
     if (event.submitter && event.submitter.value === "cancel") return;

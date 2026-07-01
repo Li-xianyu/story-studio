@@ -314,12 +314,16 @@
   <dialog id="settingsDialog" class="modal settings-modal">
     <form method="dialog" id="settingsForm">
       <div class="modal-head"><div><strong>连接与朗读</strong><small>配置保存在当前浏览器</small></div><button type="button" class="icon-btn" data-close-dialog="settingsDialog" title="关闭" aria-label="关闭"><i data-lucide="x"></i></button></div>
-      <div class="settings-tabs"><button type="button" class="active" data-settings-tab="model">模型</button><button type="button" data-settings-tab="tts">朗读</button></div>
+      <div class="settings-tabs"><button type="button" class="active" data-settings-tab="model">模型</button><button type="button" data-settings-tab="tts">朗读</button><button type="button" data-settings-tab="sync">云同步</button></div>
       <section data-settings-panel="model">
         <label>API 地址<input id="apiHost" placeholder="https://api.deepseek.com"></label>
         <label>API Key<input id="apiKey" type="password" autocomplete="off"></label>
         <label>模型<input id="apiModel" placeholder="deepseek-chat"></label>
         <label>Temperature<input id="temperature" type="number" min="0" max="2" step="0.1"></label>
+        <label>模型上下文（Tokens）<input id="memoryContextTokens" type="number" min="8000" max="2000000" step="1000" placeholder="128000">
+          <small class="field-note">模型支持的最大 Token 数，如 DeepSeek-V3 填 128000，1M 版填 1000000。整理记忆时超出则自动分块，确保全章全量总结。</small>
+        </label>
+
               </section>
       <section data-settings-panel="tts" hidden>
         <label>朗读方式
@@ -376,6 +380,22 @@
           <small class="field-note">MiMo 官方中文预置音色；隐藏朗读轨道会自动选择对应角色音色。</small>
         </div>
         <button id="ttsTestBtn" type="button" class="quiet-btn wide">测试朗读</button>
+      </section>
+      <section data-settings-panel="sync" hidden>
+        <label>同步服务器地址<input id="syncHost" placeholder="https://your-sync-worker.username.workers.dev"></label>
+        <label>同步凭证 (Token)
+          <div style="display:flex;gap:8px;margin-bottom:4px;">
+            <input id="syncToken" type="text" autocomplete="off" placeholder="点击右侧生成或粘贴已有 Token" style="flex-grow:1;margin-bottom:0;">
+            <button type="button" id="copySyncTokenBtn" class="quiet-btn" style="flex-shrink:0;">复制</button>
+            <button type="button" id="genSyncTokenBtn" class="quiet-btn" style="flex-shrink:0;">生成 Token</button>
+          </div>
+          <small class="field-note">唯一同步凭证，请妥善保存。多端设备输入同一个 Token 即可无缝同步数据。</small>
+        </label>
+        <div class="sync-actions-row" style="display:flex;gap:8px;margin-top:12px;">
+          <button type="button" id="syncPingBtn" class="quiet-btn" style="flex-grow:1;">测试连接</button>
+          <button type="button" id="syncPullBtn" class="quiet-btn" style="flex-grow:1;">从云端拉取</button>
+          <button type="button" id="syncPushBtn" class="quiet-btn" style="flex-grow:1;">推送到云端</button>
+        </div>
       </section>
       <div class="modal-actions"><span id="settingsStatus"></span><button type="button" class="quiet-btn" data-close-dialog="settingsDialog">取消</button><button id="saveSettingsBtn" value="default" class="primary-btn">保存</button></div>
     </form>

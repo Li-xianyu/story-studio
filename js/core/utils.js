@@ -25,9 +25,22 @@ export function escapeHtml(value) {
 
 export function toast(el, message) {
   el.textContent = message;
+  var activeDialog = document.querySelector("dialog[open]");
+  if (activeDialog) {
+    activeDialog.appendChild(el);
+  } else {
+    document.body.appendChild(el);
+  }
   el.classList.add("show");
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(function () { el.classList.remove("show"); }, 2200);
+  toast.timer = setTimeout(function () {
+    el.classList.remove("show");
+    setTimeout(function () {
+      if (!el.classList.contains("show") && el.parentNode !== document.body) {
+        document.body.appendChild(el);
+      }
+    }, 350);
+  }, 2200);
 }
 
 export function setBusy(el, busy, text) {

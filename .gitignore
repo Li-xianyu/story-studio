@@ -38,6 +38,10 @@ build/
 out/
 .npm/
 
+# --- Cloudflare Workers / Wrangler ---
+.wrangler/
+.dev.vars
+
 # --- Local Secrets (Never commit) ---
 .env
 .env.local

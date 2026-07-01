@@ -1,0 +1,14 @@
+name = "story-studio-sync"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+# ⚠️ 部署前需要替换以下两个 ID
+# 1. 先执行：npx wrangler kv namespace create SYNC_KV
+# 2. 再执行：npx wrangler kv namespace create SYNC_KV --preview
+# 把输出的 id 填到下面对应位置
+
+[[kv_namespaces]]
+binding = "SYNC_KV"
+id = "fa53d6815fe649bc8a368e675b7d3051"
+preview_id = "9aac78f13b1544fd90c4722a9da10e30"
+
