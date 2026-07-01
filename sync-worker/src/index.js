@@ -97,6 +97,20 @@ export default {
 
     /* ---- 路由 ---- */
     try {
+      // === ONE-TIME INDEX MIGRATION ===
+      var legacyIndexKey = syncToken + ":index";
+      var legacyIndex = await env.SYNC_KV.get(legacyIndexKey, "json");
+      if (legacyIndex && Array.isArray(legacyIndex)) {
+        for (var i = 0; i < legacyIndex.length; i++) {
+          var meta = legacyIndex[i];
+          var metaKey = syncToken + ":meta:" + meta.id;
+          var exists = await env.SYNC_KV.get(metaKey);
+          if (!exists) {
+            await env.SYNC_KV.put(metaKey, JSON.stringify(meta), { metadata: meta });
+          }
+        }
+        await env.SYNC_KV.delete(legacyIndexKey);
+      }
 
       /* 健康检查 / Token 验证 */
       if (path === "/ping") {
