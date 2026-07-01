@@ -110,6 +110,26 @@ export async function runSync() {
   }
   
   try {
+    // 0. Handle pending deletions
+    var deletedIds = [];
+    try {
+      deletedIds = JSON.parse(localStorage.getItem("floating-story-studio-deleted-ids")) || [];
+    } catch (_) {}
+    
+    if (deletedIds.length > 0) {
+      var remaining = [];
+      for (var j = 0; j < deletedIds.length; j++) {
+        var id = deletedIds[j];
+        try {
+          await syncRequest("/stories/" + id, "DELETE");
+        } catch (err) {
+          console.warn("[Sync] Failed to delete remote story: " + id, err);
+          remaining.push(id);
+        }
+      }
+      localStorage.setItem("floating-story-studio-deleted-ids", JSON.stringify(remaining));
+    }
+
     var localStories = await getAllStories();
     
     // 1. Calculate diff

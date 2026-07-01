@@ -43,9 +43,23 @@ export function deleteStory(storyId) {
   dbDeleteStory(storyId).catch(function (err) {
     console.error("从 IndexedDB 删除故事失败:", err);
   });
+  
+  // Queue deletion for Cloud Sync
+  var deletedIds = [];
+  try {
+    deletedIds = JSON.parse(localStorage.getItem("floating-story-studio-deleted-ids")) || [];
+  } catch (_) {}
+  if (deletedIds.indexOf(storyId) === -1) {
+    deletedIds.push(storyId);
+    localStorage.setItem("floating-story-studio-deleted-ids", JSON.stringify(deletedIds));
+  }
+  
   saveState();
   renderAll();
   toast(el.toast, "故事已删除");
+  
+  // Trigger sync immediately to notify the cloud
+  import("../core/sync.js").then(function (m) { m.triggerAutoSync(); });
 }
 
 export function renameChapter(chapterId, name) {
