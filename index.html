@@ -202,6 +202,9 @@
               <button id="summarizeBtn" class="composer-menu-item" role="menuitem"><i data-lucide="brain"></i><span>整理记忆</span></button>
             </div>
           </div>
+          <button id="thinkingToggleBtn" class="composer-menu-btn" type="button" title="深度思考" aria-label="深度思考" aria-pressed="false">
+            <i data-lucide="brain"></i>
+          </button>
           <span id="statusText">准备就绪</span>
         </div>
       </section>
@@ -257,7 +260,11 @@
           <span class="settings-label">开场设定</span>
           <textarea id="premiseInput" rows="3" placeholder="创建故事时填写的开场设定"></textarea>
         </div>
-        <label class="switch-label"><input id="autoContinueToggle" type="checkbox"><span></span>自动续写</label>
+        <label class="switch-label" title="开启后，每次 AI 生成完毕会自动接续推进，循环进行，直至你手动点击停止"><input id="autoContinueToggle" type="checkbox"><span></span>自动续写</label>
+        <div class="settings-row" style="align-items:center;margin-top:10px;">
+          <span class="settings-label">每章目标字数</span>
+          <input id="chapterWordGoalInput" type="number" min="100" max="50000" step="100" placeholder="2000" style="width:90px;">
+        </div>
       </div>
 
 	      <details class="memory-card">
@@ -323,6 +330,11 @@
           </select>
         </custom-select>
       </label>
+      <label style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="white-space:nowrap;">每章目标字数</span>
+        <input id="setupWordGoal" type="number" min="100" max="50000" step="100" placeholder="2000（可选）" style="flex:1;min-width:120px;">
+        <small style="width:100%;color:var(--text-tertiary);margin:0;">达到目标字数时自动提醒，留空则不限制</small>
+      </label>
       <div class="modal-actions"><button type="button" class="quiet-btn" data-close-dialog="setupDialog">取消</button><button id="createStoryBtn" value="default" class="primary-btn">创建并开写</button></div>
     </form>
   </dialog>
@@ -332,9 +344,38 @@
       <div class="modal-head"><div><strong>连接与朗读</strong><small>配置保存在当前浏览器</small></div><button type="button" class="icon-btn" data-close-dialog="settingsDialog" title="关闭" aria-label="关闭"><i data-lucide="x"></i></button></div>
       <div class="settings-tabs"><button type="button" class="active" data-settings-tab="model">模型</button><button type="button" data-settings-tab="tts">朗读</button><button type="button" data-settings-tab="sync">云同步</button></div>
       <section data-settings-panel="model">
+        <label>服务商
+          <custom-select>
+            <select id="apiProvider">
+              <option value="deepseek">DeepSeek</option>
+              <option value="siliconflow">SiliconFlow (硅基流动)</option>
+              <option value="openai">OpenAI</option>
+              <option value="custom">Custom (自定义)</option>
+            </select>
+          </custom-select>
+        </label>
         <label>API 地址<input id="apiHost" placeholder="https://api.deepseek.com"></label>
-        <label>API Key<input id="apiKey" type="password" autocomplete="off"></label>
-        <label>模型<input id="apiModel" placeholder="deepseek-chat"></label>
+        <label>API Key<input id="apiKey" type="password" autocomplete="off" placeholder="输入您的 API Key"></label>
+        
+        <label>模型
+          <div style="display:flex;gap:8px;align-items:stretch;margin-bottom:6px;">
+            <div style="flex:1;min-width:0;">
+              <custom-select>
+                <select id="apiModel">
+                  <!-- Will be populated dynamically by JS -->
+                </select>
+              </custom-select>
+            </div>
+            <button type="button" id="fetchModelsBtn" class="quiet-btn" style="flex-shrink:0;height:38px;padding:0 12px;margin:0;font-size:12px;display:inline-flex;align-items:center;gap:4px;">
+              <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i>获取模型列表
+            </button>
+          </div>
+          <div id="customModelInputRow" style="display:none;margin-top:6px;">
+            <span style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:4px;">手动指定模型名称</span>
+            <input id="apiModelCustom" type="text" placeholder="例如：gpt-4o" style="margin-bottom:0;">
+          </div>
+        </label>
+
         <label>Temperature<input id="temperature" type="number" min="0" max="2" step="0.1"></label>
         <label>模型上下文（Tokens）<input id="memoryContextTokens" type="number" min="8000" max="2000000" step="1000" placeholder="128000">
           <small class="field-note">模型支持的最大 Token 数，如 DeepSeek-V3 填 128000，1M 版填 1000000。整理记忆时超出则自动分块，确保全章全量总结。</small>
@@ -451,7 +492,10 @@
         <div><strong>如何重写？</strong><small>这段正文保存了生成时的用户输入</small></div>
         <button type="button" class="icon-btn" data-close-dialog="rewriteChoiceDialog" title="关闭" aria-label="关闭"><i data-lucide="x"></i></button>
       </div>
-      <p id="rewriteSourcePreview" class="confirm-copy"></p>
+      <div class="rewrite-input-group" style="display:flex; flex-direction:column; gap:6px; margin-bottom:16px;">
+        <span id="rewriteInputLabel" class="settings-label" style="font-size:12px; font-weight:600; color:var(--text-secondary);">原输入：</span>
+        <textarea id="rewriteSourceInput" class="rewrite-textarea" rows="3" style="width:100%; font-size:13px; padding:8px 10px; border-radius:var(--radius-md); border:1px solid var(--border-subtle); background:var(--input-bg); color:var(--text-primary); resize:vertical; outline:none; line-height:1.5; font-family:inherit;" placeholder="修改这里的故事指令..."></textarea>
+      </div>
       <div class="rewrite-choice-actions">
         <button id="rewriteFreeBtn" type="button" class="quiet-btn">仅根据上文自由重写</button>
         <button id="rewriteFromInputBtn" type="button" class="primary-btn">按原输入重写</button>

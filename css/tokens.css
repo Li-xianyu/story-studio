@@ -87,7 +87,7 @@
   --ease-fluid: cubic-bezier(0.25, 0.1, 0.25, 1);
   --ease-ios: cubic-bezier(0.28, 0.11, 0.32, 1);
 
-  --reader-width: 720px;
+  --reader-width: 800px;
   --material-blur: blur(32px) saturate(180%);
   --control-height: 44px;
 }

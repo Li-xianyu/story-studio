@@ -84,14 +84,17 @@
   scroll-behavior: smooth;
   --segment-action-safe-space: 22px;
   --reader-bottom-space: calc(var(--composer-height, 204px) + 30px + var(--segment-action-safe-space));
-  /* 始终以全视口为基准居中，面板打开时只补足最小避让，不会位移 */
-  padding:
-    76px
-    max(calc(var(--g-right, 0px) + 24px), calc((100% - var(--reader-width)) / 2))
-    var(--reader-bottom-space)
-    max(calc(var(--g-left, 0px) + 24px), calc((100% - var(--reader-width)) / 2));
+  --free: calc(100% - var(--g-left, 0px) - var(--g-right, 0px));
+  margin-left: var(--g-left, 0px);
+  margin-right: var(--g-right, 0px);
+  padding-top: 76px;
+  padding-bottom: var(--reader-bottom-space);
+  padding-left: max(24px, calc((var(--free) - var(--reader-width)) / 2));
+  padding-right: max(24px, calc((var(--free) - var(--reader-width)) / 2));
   transition:
-    padding-bottom .35s var(--ease-fluid),
+    margin-left     .35s var(--ease-fluid),
+    margin-right    .35s var(--ease-fluid),
+    padding-bottom  .35s var(--ease-fluid),
     padding-left    .35s var(--ease-fluid),
     padding-right   .35s var(--ease-fluid);
 }

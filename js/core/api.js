@@ -18,8 +18,34 @@ export async function streamCompletion(messages, onDelta, options) {
     throw new Error("请先配置模型接口");
   }
   state.abortController = new AbortController();
+  // Resolve target model and thinking state based on options and settings
+  var targetModel = settings.apiModel;
+  var isThinkingActive = !!settings.thinkingEnabled;
+  if (options && options.thinking === "disabled") {
+    isThinkingActive = false;
+  }
+
+  // Auto model switching for official DeepSeek and SiliconFlow models
+  if (isThinkingActive) {
+    if (targetModel === "deepseek-chat") {
+      targetModel = "deepseek-reasoner";
+    } else if (targetModel === "deepseek-ai/DeepSeek-V3") {
+      targetModel = "deepseek-ai/DeepSeek-R1";
+    } else if (targetModel.indexOf("V3") !== -1 && targetModel.indexOf("R1") === -1) {
+      targetModel = targetModel.replace("V3", "R1").replace("v3", "r1");
+    }
+  } else {
+    if (targetModel === "deepseek-reasoner") {
+      targetModel = "deepseek-chat";
+    } else if (targetModel === "deepseek-ai/DeepSeek-R1") {
+      targetModel = "deepseek-ai/DeepSeek-V3";
+    } else if (targetModel.indexOf("R1") !== -1 && targetModel.indexOf("V3") === -1) {
+      targetModel = targetModel.replace("R1", "V3").replace("r1", "v3");
+    }
+  }
+
   var body = {
-    model: settings.apiModel,
+    model: targetModel,
     messages: messages,
     stream: true,
     temperature: options && options.temperature !== undefined
@@ -28,6 +54,26 @@ export async function streamCompletion(messages, onDelta, options) {
     max_tokens: Number(options && options.maxTokens) || undefined,
   };
   if (!body.max_tokens) delete body.max_tokens;
+
+  // Apply thinking/reasoning effort parameters safely to avoid 400 errors on standard endpoints
+  if (isThinkingActive) {
+    if (targetModel.indexOf("o1") !== -1 || targetModel.indexOf("o3") !== -1) {
+      body.reasoning_effort = "medium";
+      delete body.temperature;
+    } else if (settings.apiHost.indexOf("siliconflow") !== -1 && targetModel.indexOf("R1") !== -1) {
+      body.thinking_budget = 2048;
+    } else {
+      body.thinking = { type: "enabled" };
+    }
+  } else {
+    if (targetModel.indexOf("o1") !== -1 || targetModel.indexOf("o3") !== -1) {
+      body.reasoning_effort = "low";
+      delete body.temperature;
+    } else {
+      body.thinking = { type: "disabled" };
+    }
+  }
+
   if (options && options.thinking) body.thinking = { type: options.thinking };
   if (options && options.responseFormat) body.response_format = options.responseFormat;
   var response = await fetch(normalizedHost(settings.apiHost), {

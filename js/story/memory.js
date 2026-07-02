@@ -82,9 +82,9 @@ export function buildSystemPrompt(story) {
 
 function getLengthInstruction(length) {
   var rule = "【强制收束要求】绝对不要在句子中途被截断。当你感觉接近字数上限时，请提前进行剧情收束，必须以完整的标点符号（。！？…”）结尾，确保最后一段是一个完整的句子，千万不要留下半句话。";
-  if (length === "short") return "本次只生成一个较短的剧情片段，控制在 250 至 400 个中文字符，接近 300 字时自然停在可续继的位置。" + rule;
-  if (length === "long") return "本次只生成一个较长的剧情片段，控制在 900 至 1300 个中文字符，接近 1100 字时自然收束，不要写成完整章节。" + rule;
-  return "本次只生成一个中等长度的剧情片段，控制在 500 至 800 个中文字符，接近 650 字时自然停在可续继的位置。" + rule;
+  if (length === "short") return "【字数硬性限制】本次只生成一个较短的剧情片段，严格控制在 250 至 400 个中文字符以内，绝对不要超过 400 字。接近 300 字时立即自然停笔。超出字数限制是最严重的错误。" + rule;
+  if (length === "long") return "【字数硬性限制】本次只生成一个较长的剧情片段，严格控制在 900 至 1300 个中文字符以内，绝对不要超过 1300 字。接近 1100 字时自然收束，不要写成完整章节。超出字数限制是最严重的错误。" + rule;
+  return "【字数硬性限制】本次只生成一个中等长度的剧情片段，严格控制在 500 至 800 个中文字符以内，绝对不要超过 800 字。接近 650 字时立即自然停笔。超出字数限制是最严重的错误。" + rule;
 }
 
 /* ---- 辅助 ---- */
@@ -97,15 +97,36 @@ export function looksNarrativeIncomplete(text) {
 }
 
 export function getLengthMaxTokens(length) {
-  if (length === "short") return 1100;
-  if (length === "long") return 3200;
-  return 2000;
+  if (length === "short") return 600;
+  if (length === "long") return 2000;
+  return 1200;
 }
 
 export function recentNarrative(chapter) {
   return chapter.segments.map(function (segment) {
     return segment.content;
   }).join("\n\n");
+}
+
+export function previousChapterTail(story, chapter, maxChars) {
+  if (!story || !chapter) return "";
+  var idx = story.chapters.indexOf(chapter);
+  if (idx <= 0) return "";
+  var prevChapter = story.chapters[idx - 1];
+  if (!prevChapter || !prevChapter.segments || prevChapter.segments.length === 0) return "";
+  var fullText = prevChapter.segments.map(function (seg) {
+    return seg.content || "";
+  }).filter(Boolean).join("\n\n");
+  if (!fullText) return "";
+  var limit = maxChars || 1200;
+  if (fullText.length <= limit) return fullText;
+  // Take the last `limit` characters, but start at a paragraph boundary if possible
+  var tail = fullText.slice(-limit);
+  var breakIdx = tail.indexOf("\n\n");
+  if (breakIdx > 0 && breakIdx < limit * 0.4) {
+    tail = tail.slice(breakIdx + 2);
+  }
+  return tail;
 }
 
 function getMemoryContextChars() {

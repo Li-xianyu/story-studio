@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    娴厜鍓у満 路 Composer
    ============================================================ */
 
@@ -353,6 +353,17 @@
 [data-theme="light"] .composer-menu-btn.active {
   color: rgba(0,0,0,.78);
   background: rgba(0,0,0,.06);
+}
+
+#thinkingToggleBtn.active {
+  color: #a855f7 !important;
+  background: rgba(168, 85, 247, 0.12) !important;
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.15);
+}
+[data-theme="light"] #thinkingToggleBtn.active {
+  color: #7c3aed !important;
+  background: rgba(124, 58, 237, 0.10) !important;
+  box-shadow: 0 0 8px rgba(124, 58, 237, 0.12);
 }
 
 #statusText {

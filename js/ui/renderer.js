@@ -68,12 +68,74 @@ export async function renderTrashList() {
 export function renderChapterList() {
   var story = getStory();
   el.chapterList.innerHTML = story ? story.chapters.map(function (chapter, index) {
+    var isActive = chapter.id === state.activeChapterId;
     var words = chapter.segments.reduce(function (sum, segment) { return sum + String(segment.content || "").length; }, 0);
-    return '<div class="chapter-row"><button class="chapter-item ' + (chapter.id === state.activeChapterId ? "active" : "") + '" data-chapter-id="' + chapter.id + '">' +
-      "<strong>" + escapeHtml(chapter.title || ("\u7b2c " + (index + 1) + " \u7ae0")) + "</strong><small>" + words + " \u5b57</small></button>" +
+    
+    var metaRow = "";
+    var progressBar = "";
+    
+    if (isActive) {
+      var goal = story.chapterWordGoal || 0;
+      var wordLabel = goal > 0
+        ? (words + " / " + goal + " \u5b57")
+        : (words + " \u5b57");
+      
+      var goalBadge = "";
+      if (goal > 0) {
+        var reached = words >= goal;
+        if (reached) {
+          if (words >= goal * 1.5) {
+            goalBadge = '<small class="goal-badge warning">\u5b57\u6570\u8fc7\u591a</small>';
+          } else {
+            goalBadge = '<small class="goal-badge">\u2713 \u8fbe\u6807</small>';
+          }
+        }
+        
+        var pct = Math.min(100, Math.round(words / goal * 100));
+        progressBar = '<div class="chapter-word-progress" title="' + words + ' / ' + goal + ' \u5b57">' +
+          '<div class="chapter-word-bar' + (reached ? " reached" : "") + '" style="width:' + pct + '%"></div>' +
+          '</div>';
+      }
+      metaRow = '<span class="chapter-meta-row"><small>' + wordLabel + '</small>' + goalBadge + '</span>';
+    } else {
+      // Inactive chapters: clean view, just show words, no bars
+      metaRow = '<span class="chapter-meta-row"><small style="color: var(--text-tertiary); opacity: 0.75;">' + words + ' \u5b57</small></span>';
+    }
+    
+    return '<div class="chapter-row"><button class="chapter-item ' + (isActive ? "active" : "") + '" data-chapter-id="' + chapter.id + '">' +
+      "<strong>" + escapeHtml(chapter.title || ("\u7b2c " + (index + 1) + " \u7ae0")) + "</strong>" +
+      metaRow +
+      progressBar +
+      '</button>' +
       '<div class="chapter-row-actions"><button class="chapter-mini-btn" data-chapter-action="rename" data-chapter-id="' + chapter.id + '" title="\u91cd\u547d\u540d"><i data-lucide="pencil"></i></button>' +
       '<button class="chapter-mini-btn danger" data-chapter-action="delete" data-chapter-id="' + chapter.id + '" title="\u5220\u9664\u7ae0\u8282"><i data-lucide="trash-2"></i></button></div></div>';
   }).join("") : "";
+  
+  setTimeout(scrollActiveChapterIntoView, 50);
+}
+
+export function scrollActiveChapterIntoView() {
+  if (!el.chapterList) return;
+  var activeItem = el.chapterList.querySelector(".chapter-item.active");
+  if (!activeItem) return;
+  var activeRow = activeItem.closest(".chapter-row") || activeItem;
+  var container = activeRow.closest(".library-panel-body");
+  if (!container || container.clientHeight === 0) return;
+  
+  // Calculate static layout offset relative to the scroll container
+  var relativeTop = activeRow.offsetTop;
+  var parent = activeRow.offsetParent;
+  while (parent && parent !== container && container.contains(parent)) {
+    relativeTop += parent.offsetTop;
+    parent = parent.offsetParent;
+  }
+  
+  var targetScrollTop = relativeTop - (container.clientHeight / 2) + (activeRow.offsetHeight / 2) + 20;
+  
+  container.scrollTo({
+    top: Math.max(0, targetScrollTop),
+    behavior: "smooth"
+  });
 }
 
 export function segmentHtml(segment, speechOffset, isLast) {
@@ -171,38 +233,57 @@ export function renderControls() {
   el.lengthSelect.value = story.length || "medium";
   el.styleInput.value = story.style || "";
   el.playerRoleInput.value = story.playerRole || "";
-  
-  var disableRole = story.pov === "第一人称" || story.pov === "第二人称";
-  el.playerRoleInput.disabled = disableRole;
-  if (disableRole) {
-    el.playerRoleInput.title = "第一/第二人称视角下无法更改主角";
-    el.playerRoleInput.placeholder = "无法修改主角";
-  } else {
-    el.playerRoleInput.removeAttribute("title");
-    el.playerRoleInput.placeholder = "例如：沈砚";
-  }
+  el.playerRoleInput.disabled = false;
+  el.playerRoleInput.removeAttribute("title");
+  el.playerRoleInput.placeholder = "例如：沈砚";
 
   el.premiseInput.value = story.premise || "";
   el.autoContinueToggle.checked = Boolean(story.autoContinue);
   el.autoTtsToggle.checked = Boolean(story.autoTts);
+  if (el.chapterWordGoalInput) {
+    el.chapterWordGoalInput.value = story.chapterWordGoal > 0 ? story.chapterWordGoal : "";
+  }
 }
 
 export function renderMemory() {
   var story = getStory();
   if (!story) return;
-  // 故事摘要：按章节拼接
-  var summaryText = "";
-  var chapterMap = {};
-  (story.chapters || []).forEach(function (ch) { chapterMap[ch.id] = ch.title; });
-  var keys = Object.keys(story.memory.chapterSummaries || {});
-  keys.forEach(function (cid, i) {
-    var title = chapterMap[cid] || cid;
-    if (title === "__legacy__") title = "早期摘要";
-    if (i > 0) summaryText += "\n\n";
-    summaryText += "【" + title + "】\n" + (story.memory.chapterSummaries[cid] || "");
-  });
-	  var elSummary = document.getElementById("summaryMemory");
-	  if (elSummary) elSummary.textContent = summaryText || "尚未整理。";
+  // 故事摘要：分章节折叠面板
+  var elSummary = document.getElementById("summaryMemory");
+  if (elSummary) {
+    var chapterMap = {};
+    (story.chapters || []).forEach(function (ch) { chapterMap[ch.id] = ch.title; });
+    var keys = Object.keys(story.memory.chapterSummaries || {});
+    if (!keys.length) {
+      elSummary.textContent = "尚未整理。";
+    } else {
+      elSummary.innerHTML = "";
+      var currentCh = typeof getChapter === "function" ? getChapter() : null;
+      keys.forEach(function (cid) {
+        var title = chapterMap[cid] || cid;
+        if (title === "__legacy__") title = "早期摘要";
+        var content = story.memory.chapterSummaries[cid] || "";
+
+        var details = document.createElement("details");
+        details.className = "summary-chapter-details";
+        if (currentCh && currentCh.id === cid) {
+          details.open = true;
+        }
+
+        var summary = document.createElement("summary");
+        summary.className = "summary-chapter-title";
+        summary.textContent = title;
+
+        var body = document.createElement("div");
+        body.className = "summary-chapter-body";
+        body.textContent = content || "无内容";
+
+        details.appendChild(summary);
+        details.appendChild(body);
+        elSummary.appendChild(details);
+      });
+    }
+  }
   // 人物关系：解析为易读格式
   var charsEl = document.getElementById("charactersMemory");
   if (charsEl) {

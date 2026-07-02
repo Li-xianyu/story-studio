@@ -78,13 +78,26 @@
   margin: 20px 0 8px;
   text-transform: uppercase;
 }
-.section-head { display: flex; align-items: center; justify-content: space-between; }
+.section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky;
+  top: -14px;
+  z-index: 10;
+  background: rgba(12, 12, 15, 0.98);
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+[data-theme="light"] .section-head {
+  background: rgba(248, 250, 252, 0.98);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
 .section-head .section-label { margin: 0; }
 
 .library-panel-body {
   min-height: 0;
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
   padding: 14px 0;
   scrollbar-width: thin;
@@ -126,7 +139,7 @@
 .library-add-btn svg { width: 14px; height: 14px; }
 
 /* === Story / Chapter Lists === */
-.story-list, .chapter-list { display: grid; gap: 2px; }
+.story-list, .chapter-list { display: grid; gap: 2px; padding-bottom: 40px; }
 .branch-list { display: grid; gap: 3px; }
 
 .story-row {
@@ -197,6 +210,8 @@
   min-height: 42px;
   gap: 0;
   padding: 4px 10px;
+  flex-direction: column;
+  align-items: stretch;
 }
 .chapter-item strong { line-height: 1.25; }
 .chapter-item small { line-height: 1.2; }
@@ -265,6 +280,31 @@
 .chapter-mini-btn:hover { color: var(--text-primary); background: var(--glass-bg); }
 .chapter-mini-btn.danger:hover { color: var(--red); background: var(--red-glass); }
 .chapter-mini-btn svg { width: 14px; height: 14px; }
+
+/* Chapter word count goal progress */
+.chapter-meta-row { display: flex; align-items: center; gap: 6px; line-height: 1.2; }
+.goal-badge {
+  font-size: 10px; font-weight: 600; letter-spacing: .02em;
+  color: #4ade80; padding: 0 4px; border-radius: 3px;
+  background: rgba(74, 222, 128, 0.12);
+}
+.chapter-word-progress {
+  width: calc(100% - 4px); height: 3px;
+  background: rgba(255,255,255,.08); border-radius: 2px;
+  margin: 3px 2px 1px; overflow: hidden;
+  grid-column: 1 / -1;
+}
+.chapter-word-bar {
+  height: 100%; border-radius: 2px;
+  background: var(--accent);
+  transition: width .4s var(--ease-fluid), background .3s;
+}
+.chapter-word-bar.reached { background: #4ade80; }
+
+[data-theme="light"] .goal-badge { color: #16a34a; background: rgba(22,163,74,.10); }
+.goal-badge.warning { color: #fb923c; background: rgba(251, 146, 60, 0.12); }
+[data-theme="light"] .goal-badge.warning { color: #ea580c; background: rgba(234, 88, 12, 0.10); }
+[data-theme="light"] .chapter-word-progress { background: rgba(0,0,0,.08); }
 
 .library-footer {
   display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
@@ -589,4 +629,61 @@
   padding: 0 0 12px;
   color: var(--text-secondary); font-size: 12px;
   line-height: 1.7; white-space: pre-wrap;
+}
+
+/* Chapter summary collapsible items */
+.summary-chapter-details {
+  border-bottom: 1px solid var(--separator-light);
+  margin-bottom: 2px;
+}
+.summary-chapter-details:last-child {
+  border-bottom: none;
+}
+.summary-chapter-title {
+  padding: 6px 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-quaternary);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, background-color 0.15s;
+  border-radius: var(--radius-sm);
+}
+.summary-chapter-title:hover {
+  color: var(--text-secondary);
+  background-color: var(--hover-bg);
+}
+.summary-chapter-title::-webkit-details-marker {
+  display: none;
+}
+.summary-chapter-title::before {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  margin-right: 6px;
+  border-right: 1px solid var(--text-quaternary);
+  border-bottom: 1px solid var(--text-quaternary);
+  transform: rotate(-45deg);
+  transition: transform 0.2s var(--ease-fluid), border-color 0.15s;
+}
+.summary-chapter-title:hover::before {
+  border-color: var(--text-secondary);
+}
+.summary-chapter-details[open] .summary-chapter-title::before {
+  transform: rotate(45deg);
+  border-color: var(--text-tertiary);
+}
+.summary-chapter-details[open] .summary-chapter-title {
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+.summary-chapter-body {
+  padding: 2px 4px 8px 16px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+  white-space: pre-wrap;
 }

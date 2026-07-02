@@ -244,53 +244,39 @@ export async function runSync() {
       
       var verifiedPush = [];
       var deletedLocalCount = 0;
+      var softDeletedTitles = [];
       
       // Safety lock: if the cloud index is empty, but we have previously synced local stories,
       // we assume a cloud reset and treat them all as new local stories to push instead of deleting them.
+      // ALSO: if cloud appears to have fewer stories than we've ever synced locally (partial cloud data loss),
+      // trigger the same lock to avoid silently trashing stories that are simply missing from cloud due to bugs.
       var isCloudIndexEmpty = (needPull.length === 0 && needPush.length === activeStories.length);
       var hasPreviouslySyncedLocal = activeStories.some(function (s) { return s.syncedAt; });
-      var safetyLockTriggered = isCloudIndexEmpty && hasPreviouslySyncedLocal;
+      var syncedLocalCount = activeStories.filter(function (s) { return !!s.syncedAt; }).length;
+      // cloudStoryCount = stories in cloud = local stories that did NOT need push + cloud-only stories to pull
+      var cloudStoryCount = (activeStories.length - needPush.length) + needPull.length;
+      var cloudAppearsIncomplete = hasPreviouslySyncedLocal && cloudStoryCount < syncedLocalCount;
+      var safetyLockTriggered = (isCloudIndexEmpty || cloudAppearsIncomplete) && hasPreviouslySyncedLocal;
+
+      if (safetyLockTriggered && cloudAppearsIncomplete && !isCloudIndexEmpty) {
+        console.warn("[Sync] Safety lock triggered: cloud appears incomplete (cloud=" + cloudStoryCount + " < synced=" + syncedLocalCount + "). Treating missing stories as new pushes.");
+      }
       
       for (var k = 0; k < pushStories.length; k++) {
         var s = pushStories[k];
         if (s.syncedAt && !safetyLockTriggered) {
-          // Previously synced, but now missing in cloud -> deleted on other device!
-          var hasLocalModSinceLastSync = s.updatedAt > s.syncedAt;
-          if (hasLocalModSinceLastSync) {
-            // Local has newer changes that were not pushed yet. Treat as new local and push.
-            delete s.syncedAt;
-            await saveStory(s);
-            verifiedPush.push(s);
-            console.warn("[Sync] Kept local story because it has un-synced modifications: " + s.title);
-          } else {
-            // No local modifications, safe to propagate remote deletion (soft-delete to Recycle Bin)
-            s.trash = true;
-            s.deletedAt = nowLocal;
-            s.updatedAt = nowLocal;
-            await saveStory(s);
-            
-            var index = state.stories.findIndex(function (item) { return item.id === s.id; });
-            if (index >= 0) {
-              state.stories.splice(index, 1);
-              if (state.activeStoryId === s.id) {
-                var nextStory = state.stories[Math.min(index, state.stories.length - 1)] || null;
-                state.activeStoryId = nextStory ? nextStory.id : "";
-                state.activeChapterId = nextStory && nextStory.chapters[0] ? nextStory.chapters[0].id : "";
-              }
-            }
-            deletedLocalCount++;
-            changed = true;
-            console.warn("[Sync] Local story soft-deleted (Recycle Bin) due to remote deletion: " + s.title);
-          }
+          // Previously synced, but now missing in cloud.
+          // Conservative strategy: NEVER auto-trash. Always re-push to cloud.
+          // This prevents false-positive deletions caused by cloud API glitches,
+          // network timing issues, or race conditions with the deleted-ids queue.
+          delete s.syncedAt;
+          await saveStory(s);
+          verifiedPush.push(s);
+          console.warn("[Sync] Story was synced but missing from cloud, re-pushing instead of trashing: " + s.title);
         } else {
           // Brand new story or safety lock active -> push to cloud
           verifiedPush.push(s);
         }
-      }
-      
-      if (deletedLocalCount > 0) {
-        ensureActiveSelection();
-        toast(el.toast, "同步完成：已将 " + deletedLocalCount + " 个在其他设备删除的故事移入回收站");
       }
       
       if (verifiedPush.length > 0) {

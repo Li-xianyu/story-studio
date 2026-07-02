@@ -26,7 +26,7 @@ export var settings = {
   theme: "dark",
   apiHost: "https://api.deepseek.com",
   apiKey: "",
-  apiModel: "deepseek-chat",
+  apiModel: "deepseek-v4-flash",
   temperature: 0.9,
   memoryContextTokens: 128000,
   ttsProvider: "system",
@@ -44,6 +44,9 @@ export var settings = {
   readerIndent: true,
   syncHost: "",
   syncToken: "",
+  apiProvider: "deepseek",
+  apiModelCustom: "",
+  thinkingEnabled: false,
 };
 
 export var el = {};
@@ -59,7 +62,7 @@ var ids = [
   "ttsNarratorVoice", "ttsMaleVoice", "ttsFemaleVoice",
   "systemTtsFields", "mimoTtsFields", "settingsStatus", "importInput",
   "segmentEditDialog", "segmentEditor", "undoBar", "undoText",
-  "rewriteChoiceDialog", "rewriteSourcePreview", "rewriteFreeBtn", "rewriteFromInputBtn",
+  "rewriteChoiceDialog", "rewriteSourceInput", "rewriteFreeBtn", "rewriteFromInputBtn",
   "deleteStoryDialog", "deleteStoryName", "confirmDeleteStoryBtn",
   "libraryThemeBtn", "memoryProgressDialog", "memoryProgressTimeline", "memoryProgressCancelBtn",
   "readingSettingsBtn", "readingSettingsDialog",
@@ -68,7 +71,9 @@ var ids = [
   "generateCommentsBtn", "commentSheet", "commentSheetBackdrop", "commentSheetBody", "commentSheetTitle", "commentSheetClose", "composerModeHint",
   "commentGenSheet", "commentGenSheetBackdrop", "commentGenSheetClose", "commentGenChapter", "commentGenStartBtn", "commentGenModeTabs", "commentGenAmountTabs", "commentGenHint",
   "syncHost", "syncToken", "copySyncTokenBtn", "genSyncTokenBtn", "syncPingBtn", "syncNowBtn",
-  "trashList", "emptyTrashBtn", "syncIndicator"
+  "trashList", "emptyTrashBtn", "syncIndicator",
+  "setupWordGoal", "chapterWordGoalInput",
+  "apiProvider", "apiModelCustom", "fetchModelsBtn"
 ];
 
 export function cacheElements() {
@@ -94,6 +99,7 @@ export function createStoryData(title, premise, playerRole, genre, pov) {
     length: "medium",
     autoContinue: false,
     autoTts: false,
+    chapterWordGoal: 0,
     createdAt: nowIso(),
     updatedAt: nowIso(),
     started: false,

@@ -4,12 +4,12 @@
 
 import { state, settings, el, getStory, getChapter, touchStory, saveState, saveSettings, createStoryData, isPristineStory, applyReaderSettings, loadState } from "../core/state.js";
 import { uid, nowIso, toast, setBusy, tryRepairJson } from "../core/utils.js";
-import { renderAll, renderStory, renderStoryList, renderChapterList, renderControls, renderMemory, renderBranches, segmentHtml } from "./renderer.js";
-import { openSettings, saveSettingsForm, syncTtsProviderFields, openSegmentEditor, saveSegmentEdit, createUndoSnapshot, undoLastChange } from "./dialogs.js";
+import { renderAll, renderStory, renderStoryList, renderChapterList, renderControls, renderMemory, renderBranches, segmentHtml, scrollActiveChapterIntoView } from "./renderer.js";
+import { openSettings, saveSettingsForm, syncTtsProviderFields, openSegmentEditor, saveSegmentEdit, createUndoSnapshot, undoLastChange, syncApiModelOptions } from "./dialogs.js";
 import { syncAll } from "./custom-select.js";
 import { speakText, stopSpeech, toggleSpeech, playFromIndex, playChapterFromIndex, playChapterFromSegment, toggleChapterFromSegment, populateVoices, flushStreamedParagraphs, resetStreamedState } from "../core/tts.js";
 import { newChapter, renameChapter, deleteChapter, renameStory, deleteStory, saveBranch, restoreBranch, deleteSegment, rewriteFromSegment, closeMobilePanels } from "../story/story.js";
-import { summarizeMemory, prepareChapterMemory, recentNarrative, looksNarrativeIncomplete, getLengthMaxTokens, buildSystemPrompt } from "../story/memory.js";
+import { summarizeMemory, prepareChapterMemory, recentNarrative, previousChapterTail, looksNarrativeIncomplete, getLengthMaxTokens, buildSystemPrompt } from "../story/memory.js";
 import { exportStory, importFile } from "../story/import-export.js";
 import { openRelationGraph, closeRelationGraph } from "./relation-graph.js";
 import { streamCompletion } from "../core/api.js";
@@ -249,9 +249,20 @@ async function generateNarrative(instruction, source, metadata) {
   var streamingNode = document.querySelector('[data-segment-id="' + segment.id + '"]');
   setBusy(el, true, source === "rewrite" ? "正在重写…" : "故事正在继续…");
   try {
+    var currentNarrative = recentNarrative(chapter);
+    var prevTail = "";
+    // When current chapter has little or no content, bridge from the previous chapter's ending
+    if (!(metadata && metadata.contextPrompt)) {
+      var currentCharCount = (currentNarrative || "").length;
+      if (currentCharCount < 500) {
+        prevTail = previousChapterTail(story, chapter, 800);
+      }
+    }
     var narrativeContext = metadata && metadata.contextPrompt
       ? metadata.contextPrompt
-      : "以下是当前章节最近的正文：\n\n" + (recentNarrative(chapter) || "尚无正文。");
+      : (prevTail
+          ? "【上一章末尾】（必须自然衔接，不要重复或复述以下内容）\n\n" + prevTail + "\n\n【当前章节正文】\n\n" + (currentNarrative || "尚无正文，请从上一章末尾自然衔接开始。")
+          : "以下是当前章节最近的正文：\n\n" + (currentNarrative || "尚无正文。"));
     var continuationInstruction = inheritedTail
       ? [
           "",
@@ -261,10 +272,12 @@ async function generateNarrative(instruction, source, metadata) {
           "补完残句后，继续严格执行下面的本轮要求。本轮用户输入与明确剧情指令优先级更高，不得忽略或改写其意图。"
         ].join("\n")
       : "";
+    var lengthReminder = story.length === "short" ? "【提醒】本次生成严格不超过 400 字。" : story.length === "long" ? "【提醒】本次生成严格不超过 1300 字。" : "【提醒】本次生成严格不超过 800 字。";
     var messages = [
       { role: "system", content: buildSystemPrompt(story) },
       { role: "user", content: narrativeContext + continuationInstruction +
         "\n\n接下来请执行：" + (instruction || "自然续写故事，推进当前场景。") +
+        "\n" + lengthReminder +
         "\n\n【硬性要求】每句人物对话的引号后必须紧跟 [m] 或 [f] 标记说话人性别（男[m] 女[f]），旁白不加标记。不加标记会导致朗读功能完全失效。示例：\"你来了。\"[m] \"嗯。\"[f]" }
     ];
     var completion = await streamCompletion(messages, function (delta) {
@@ -274,12 +287,16 @@ async function generateNarrative(instruction, source, metadata) {
       if (streamingNode) {
         streamingNode.outerHTML = segmentHtml(segment);
         streamingNode = document.querySelector('[data-segment-id="' + segment.id + '"]');
-        if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
       }
-		      if (!userScrolledAway && !userIsTouching) {
-		        smoothScrollToBottom();
-		      }
+      if (!userScrolledAway && !userIsTouching) {
+        smoothScrollToBottom();
+      }
     }, { maxTokens: getLengthMaxTokens(story.length) });
+
+    // Stream finished, render segment action icons
+    if (window.lucide && typeof window.lucide.createIcons === "function") {
+      window.lucide.createIcons();
+    }
     segment.truncated = Boolean(
       segment.content.trim() &&
       (["length", "max_tokens"].includes(completion.finishReason) || looksNarrativeIncomplete(segment.content))
@@ -321,6 +338,16 @@ async function generateNarrative(instruction, source, metadata) {
     renderAll();
     if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
     if (segment.content && story.autoTts) playChapterFromSegment(segment.id);
+    // Check chapter word goal
+    if (story.chapterWordGoal > 0 && segment.content) {
+      var totalChapterChars = chapter.segments.reduce(function (sum, seg) {
+        return sum + String(seg.content || "").length;
+      }, 0);
+      if (totalChapterChars >= story.chapterWordGoal && !chapter.goalNotifiedAt) {
+        chapter.goalNotifiedAt = new Date().toISOString();
+        toast(el.toast, "📖 " + (chapter.title || "本章") + " 已达到 " + story.chapterWordGoal + " 字目标！可以考虑新建下一章了。");
+      }
+    }
     if (story.autoContinue && !state.abortController.signal.aborted) {
       setTimeout(function () { generateNarrative("继续自然推进故事，不要重复上一段内容。", "auto"); }, 800);
     }
@@ -334,6 +361,12 @@ async function generateNarrative(instruction, source, metadata) {
       inheritedTail.previous.truncated = true;
     }
     if (!segment.content) chapter.segments = chapter.segments.filter(function (item) { return item.id !== segment.id; });
+    
+    // Restore user input back to the input box on failure/abort
+    if (metadata && metadata.sourceInput && el.composerInput) {
+      el.composerInput.value = metadata.sourceInput;
+    }
+    
     if (error.name !== "AbortError") toast(el.toast, "生成失败：" + error.message);
     renderAll();
   } finally {
@@ -342,6 +375,9 @@ async function generateNarrative(instruction, source, metadata) {
     state.generating = false;
     setBusy(el, false);
     syncScrollToBottomBtn();
+    if (!window.matchMedia("(max-width: 760px)").matches && el.composerInput) {
+      el.composerInput.focus();
+    }
   }
 }
 
@@ -585,10 +621,6 @@ async function copySegmentContent(segmentId, button) {
 function applyStoryControl(field, value) {
   var story = getStory();
   if (!story) return;
-  if (field === "playerRole" && (story.pov === "第一人称" || story.pov === "第二人称")) {
-    el.playerRoleInput.value = story.playerRole || "";
-    return;
-  }
   story[field] = value;
   touchStory();
 }
@@ -845,6 +877,7 @@ function closeCommentSheet() {
 export function bindEvents() {
   var pendingDeleteStoryId = "";
   var pendingRewriteSegmentId = "";
+  var originalRewriteInput = "";
 
   function rewriteSegment(segmentId, useOriginalInput) {
     var chapter = getChapter();
@@ -852,13 +885,25 @@ export function bindEvents() {
     var segment = chapter && chapter.segments.find(function (item) { return item.id === segmentId; });
     if (!segment || !story) return;
     var source = segment.generationSource;
-    var instruction = useOriginalInput
-      ? instructionFromGenerationSource(story, source)
-      : "根据保留的上文重新写出此处应当发生的后续。自由发挥，但保持既有设定、人物逻辑与叙事视角，不要复用被删除正文的措辞。";
+    var instruction;
+    var finalSource = null;
+
+    if (useOriginalInput && source) {
+      var modifiedInput = el.rewriteSourceInput.value.trim();
+      finalSource = {
+        mode: source.mode,
+        input: modifiedInput,
+        contextPrompt: source.contextPrompt
+      };
+      instruction = instructionFromGenerationSource(story, finalSource);
+    } else {
+      instruction = "根据保留的上文重新写出此处应当发生的后续。自由发挥，但保持既有设定、人物逻辑与叙事视角，不要复用被删除正文的措辞。";
+    }
+
     rewriteFromSegment(segmentId);
     generateNarrative(instruction || "根据上文自然重写后续正文。", "rewrite", {
-      sourceInput: useOriginalInput && source ? source.input : "",
-      generationSource: useOriginalInput ? source : null,
+      sourceInput: finalSource ? finalSource.input : "",
+      generationSource: finalSource,
     });
   }
 
@@ -869,8 +914,11 @@ export function bindEvents() {
     if (segment.generationSource && segment.generationSource.input) {
       pendingRewriteSegmentId = segmentId;
       var labels = { role: "角色入戏", director: "剧情指令", preset: "剧情预设" };
-      el.rewriteSourcePreview.textContent =
-        (labels[segment.generationSource.mode] || "用户输入") + "：" + segment.generationSource.input;
+      var modeLabel = labels[segment.generationSource.mode] || "用户输入";
+      document.getElementById("rewriteInputLabel").textContent = modeLabel + "：";
+      originalRewriteInput = segment.generationSource.input || "";
+      el.rewriteSourceInput.value = originalRewriteInput;
+      el.rewriteFromInputBtn.textContent = "按原输入重写";
       el.rewriteChoiceDialog.showModal();
       return;
     }
@@ -1145,10 +1193,23 @@ export function bindEvents() {
   });
 
   // 统一的弹窗外部点击关闭机制 (归一化复用，使用事件委托)
+  var mouseDownTargetInDialog = false;
+  document.addEventListener("mousedown", function (event) {
+    var dialog = event.target.closest("dialog.modal");
+    if (dialog) {
+      var rect = dialog.getBoundingClientRect();
+      mouseDownTargetInDialog = (rect.top <= event.clientY && event.clientY <= rect.top + rect.height &&
+        rect.left <= event.clientX && event.clientX <= rect.left + rect.width);
+    } else {
+      mouseDownTargetInDialog = false;
+    }
+  });
+
   document.addEventListener("click", function (event) {
     var dialog = event.target.closest("dialog.modal");
     if (dialog && event.target === dialog) {
       if (dialog.id === "memoryProgressDialog") return; // 进度条禁止点击外部关闭
+      if (mouseDownTargetInDialog) return; // 如果鼠标是在弹窗内按下的，松手时不关闭弹窗（防止选文本拖拽出框导致误关）
       var rect = dialog.getBoundingClientRect();
       var isInDialog = (rect.top <= event.clientY && event.clientY <= rect.top + rect.height &&
         rect.left <= event.clientX && event.clientX <= rect.left + rect.width);
@@ -1218,6 +1279,14 @@ export function bindEvents() {
   });
   el.rewriteChoiceDialog.addEventListener("close", function () {
     pendingRewriteSegmentId = "";
+  });
+  el.rewriteSourceInput.addEventListener("input", function () {
+    var currentVal = el.rewriteSourceInput.value.trim();
+    if (currentVal !== originalRewriteInput.trim()) {
+      el.rewriteFromInputBtn.textContent = "根据修改重写";
+    } else {
+      el.rewriteFromInputBtn.textContent = "按原输入重写";
+    }
   });
   el.rewriteFromInputBtn.addEventListener("click", function () {
     var segmentId = pendingRewriteSegmentId;
@@ -1311,6 +1380,17 @@ export function bindEvents() {
 	    syncScrollToBottomBtn();
 	    var activeSegment = el.storyContent.querySelector(".segment:hover, .segment.actions-open");
 	    if (activeSegment) syncSegmentActionPlacement(activeSegment);
+	  }, { passive: true });
+	  el.readerViewport.addEventListener("wheel", function (event) {
+	    if (_smoothRaf) {
+	      cancelAnimationFrame(_smoothRaf);
+	      _smoothRaf = null;
+	    }
+	    // Only mark as scrolled away if scrolling UP (deltaY < 0)
+	    if (event && event.deltaY < 0) {
+	      userScrolledAway = true;
+	    }
+	    syncScrollToBottomBtn();
 	  }, { passive: true });
 	  el.readerViewport.addEventListener("pointerdown", function (event) {
 	    if (event.pointerType === "mouse") return;
@@ -1537,6 +1617,11 @@ export function bindEvents() {
   el.premiseInput.addEventListener("change", function () { applyStoryControl("premise", el.premiseInput.value.trim()); });
   el.autoContinueToggle.addEventListener("change", function () { applyStoryControl("autoContinue", el.autoContinueToggle.checked); });
   el.autoTtsToggle.addEventListener("change", function () { applyStoryControl("autoTts", el.autoTtsToggle.checked); });
+  if (el.chapterWordGoalInput) {
+    el.chapterWordGoalInput.addEventListener("change", function () {
+      applyStoryControl("chapterWordGoal", parseInt(el.chapterWordGoalInput.value, 10) || 0);
+    });
+  }
 
   document.querySelectorAll(".mode-tab").forEach(function (button) {
     button.addEventListener("click", function () {
@@ -1605,6 +1690,29 @@ export function bindEvents() {
     setComposerMenuOpen(!composerActionMenu.classList.contains("open"));
   });
   composerActionMenu.addEventListener("click", function () { setComposerMenuOpen(false); });
+
+  // Initialize and bind Deep Thinking toggle button
+  var thinkingToggleBtn = document.getElementById("thinkingToggleBtn");
+  if (thinkingToggleBtn) {
+    thinkingToggleBtn.classList.toggle("active", !!settings.thinkingEnabled);
+    thinkingToggleBtn.setAttribute("aria-pressed", settings.thinkingEnabled ? "true" : "false");
+    thinkingToggleBtn.addEventListener("click", function () {
+      settings.thinkingEnabled = !settings.thinkingEnabled;
+      saveSettings();
+      thinkingToggleBtn.classList.toggle("active", settings.thinkingEnabled);
+      thinkingToggleBtn.setAttribute("aria-pressed", settings.thinkingEnabled ? "true" : "false");
+      
+      var statusSpan = document.getElementById("statusText");
+      if (statusSpan) {
+        statusSpan.textContent = settings.thinkingEnabled ? "深度思考已启用" : "准备就绪";
+        setTimeout(function () {
+          if (statusSpan.textContent === "深度思考已启用" || statusSpan.textContent === "准备就绪") {
+            statusSpan.textContent = "准备就绪";
+          }
+        }, 1500);
+      }
+    });
+  }
   document.addEventListener("click", function (event) {
     if (!event.target.closest(".composer-menu-wrap")) setComposerMenuOpen(false);
   });
@@ -1629,6 +1737,8 @@ export function bindEvents() {
       el.setupGenre.value.trim(),
       el.setupPov.value
     );
+    var goalVal = el.setupWordGoal ? parseInt(el.setupWordGoal.value, 10) : 0;
+    if (goalVal > 0) story.chapterWordGoal = goalVal;
     state.stories = state.stories.filter(function (item) { return !isPristineStory(item); });
     state.stories.push(story);
     state.activeStoryId = story.id;
@@ -1953,7 +2063,7 @@ export function bindEvents() {
     if (!host) return toast(el.toast, "请先填写同步服务器地址");
     if (!token) return toast(el.toast, "请先填写同步凭证 (Token)");
     
-    saveSettingsForm();
+    saveSettingsForm(true);
     
     btn.disabled = true;
     var oldText = btn.textContent;
@@ -1982,6 +2092,133 @@ export function bindEvents() {
     if (event.submitter && event.submitter.value === "cancel") return;
     event.preventDefault(); saveSettingsForm(); el.settingsDialog.close();
   });
+
+  if (el.apiProvider) {
+    el.apiProvider.addEventListener("change", function () {
+      var val = el.apiProvider.value;
+      var hosts = {
+        deepseek: "https://api.deepseek.com",
+        siliconflow: "https://api.siliconflow.cn",
+        openai: "https://api.openai.com",
+        custom: ""
+      };
+      if (hosts[val] !== undefined) {
+        el.apiHost.value = hosts[val];
+      }
+      el.memoryContextTokens.value = "128000";
+      syncApiModelOptions(val, "");
+    });
+  }
+
+  if (el.apiModel) {
+    el.apiModel.addEventListener("change", function () {
+      var customRow = document.getElementById("customModelInputRow");
+      if (customRow) {
+        customRow.style.display = el.apiModel.value === "custom" ? "block" : "none";
+      }
+    });
+  }
+
+  if (el.fetchModelsBtn) {
+    el.fetchModelsBtn.addEventListener("click", handleFetchModels);
+  }
+
+  async function handleFetchModels() {
+    var host = String(el.apiHost.value || "").trim().replace(/\/+$/, "");
+    if (!host) return toast(el.toast, "请先输入 API 地址");
+    var key = String(el.apiKey.value || "").trim();
+    if (!key) return toast(el.toast, "请先输入 API Key");
+
+    el.fetchModelsBtn.disabled = true;
+    var originalHTML = el.fetchModelsBtn.innerHTML;
+    el.fetchModelsBtn.innerHTML = '<i class="spinning" data-lucide="refresh-cw" style="width:14px;height:14px;display:inline-block;animation:spin 1s linear infinite;"></i> 获取中...';
+    if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+
+    try {
+      var baseUrl = host.replace(/\/chat\/completions$/i, "").replace(/\/v1$/i, "");
+      var url = baseUrl + "/v1/models";
+      
+      var res = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Authorization": "Bearer " + key,
+          "Content-Type": "application/json"
+        }
+      });
+      
+      if (!res.ok) {
+        var errTxt = await res.text().catch(function () { return ""; });
+        throw new Error("HTTP " + res.status + (errTxt ? "：" + errTxt.slice(0, 100) : ""));
+      }
+      
+      var data = await res.json();
+      if (data && Array.isArray(data.data)) {
+        var models = data.data.map(function (m) { return m.id; }).sort();
+        if (models.length === 0) {
+          throw new Error("返回的模型列表为空");
+        }
+        
+        // Cache the models list in localStorage
+        try {
+          var hostKey = String(el.apiHost.value || "").trim().replace(/\/+$/, "");
+          var cached = {};
+          try {
+            cached = JSON.parse(localStorage.getItem("floating-story-studio-cached-models")) || {};
+          } catch (_) {}
+          cached[hostKey] = models;
+          localStorage.setItem("floating-story-studio-cached-models", JSON.stringify(cached));
+        } catch (cacheErr) {
+          console.error("缓存模型列表失败:", cacheErr);
+        }
+
+        var select = el.apiModel;
+        var currentVal = select.value;
+        select.innerHTML = "";
+        
+        models.forEach(function (m) {
+          var o = document.createElement("option");
+          o.value = m;
+          o.textContent = m;
+          select.appendChild(o);
+        });
+        
+        var customOpt = document.createElement("option");
+        customOpt.value = "custom";
+        customOpt.textContent = "手动输入...";
+        select.appendChild(customOpt);
+        
+        if (models.indexOf(currentVal) >= 0) {
+          select.value = currentVal;
+        } else if (currentVal === "custom") {
+          select.value = "custom";
+        } else {
+          select.value = models[0];
+        }
+        
+        var csHost = select.closest("custom-select");
+        if (csHost && csHost._csInstance) {
+          csHost._csInstance.rebuildOptions();
+        }
+        
+        var customRow = document.getElementById("customModelInputRow");
+        if (customRow) {
+          customRow.style.display = select.value === "custom" ? "block" : "none";
+        }
+        
+        toast(el.toast, "成功获取 " + models.length + " 个模型！");
+      } else {
+        throw new Error("未返回 models 数组");
+      }
+    } catch (err) {
+      console.error("获取模型列表失败", err);
+      toast(el.toast, "获取模型列表失败：" + err.message);
+    } finally {
+      el.fetchModelsBtn.disabled = false;
+      el.fetchModelsBtn.innerHTML = originalHTML;
+      if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
+    }
+  }
+
   document.getElementById("ttsTestBtn").addEventListener("click", function () {
     saveSettingsForm();
     speakText("暮色从窗外缓慢落下，故事正要开始。", true);
@@ -2247,6 +2484,10 @@ export function bindEvents() {
     button.addEventListener("click", function () {
       document.querySelectorAll("[data-lib-tab]").forEach(function (item) { item.classList.toggle("active", item === button); });
       document.querySelectorAll("[data-lib-panel]").forEach(function (panel) { panel.hidden = panel.dataset.libPanel !== button.dataset.libTab; });
+      
+      if (button.dataset.libTab === "chapters") {
+        setTimeout(scrollActiveChapterIntoView, 50);
+      }
     });
   });
 
