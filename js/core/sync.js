@@ -13,6 +13,9 @@ function syncRequest(path, method, body) {
   if (!host) {
     throw new Error("请先在设置中填写同步服务器地址");
   }
+  if (!/^https?:\/\//i.test(host)) {
+    throw new Error("同步服务器地址格式不正确，必须以 http:// 或 https:// 开头");
+  }
   var url = host + path;
   var headers = {
     "Content-Type": "application/json"
