@@ -2,7 +2,7 @@
    娴厜鍓у満 路 Dialogs
    ============================================================ */
 
-import { state, settings, el, saveSettings, getStory, saveState } from "../core/state.js";
+import { state, settings, el, saveSettings, getStory, saveState, touchStory } from "../core/state.js";
 import { toast } from "../core/utils.js";
 import { renderAll, renderStory, renderChapterList } from "./renderer.js";
 import { populateVoices, speakText } from "../core/tts.js";
@@ -166,8 +166,7 @@ export function saveSegmentEdit() {
   createUndoSnapshot("\u5df2\u7f16\u8f91\u6b63\u6587");
   found.segment.content = value;
   found.segment.speechTrack = [];
-  found.segment.editedAt = new Date().toISOString();
-  saveState();
+  touchStory();
   renderStory();
   renderChapterList();
   el.segmentEditDialog.close();
@@ -216,7 +215,7 @@ export function undoLastChange() {
   state.undoSnapshot = null;
   clearTimeout(state.undoTimer);
   el.undoBar.classList.remove("show");
-  saveState();
+  touchStory();
   renderAll();
   toast(el.toast, "\u5df2\u64a4\u9500");
 }

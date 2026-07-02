@@ -197,7 +197,20 @@ export async function runSync() {
           } else {
             var hasLocalMod = local.updatedAt > (local.syncedAt || "");
             var isCloudNewer = remoteStory.updatedAt > (local.syncedAt || "");
-            if (hasLocalMod && isCloudNewer && local.updatedAt !== remoteStory.updatedAt) {
+
+            // 安全防护：如果本地章节数量更多，或者章节数相同但本地字数明显多于云端，绝不静默覆盖！
+            var localChapterCount = local.chapters ? local.chapters.length : 0;
+            var remoteChapterCount = remoteStory.chapters ? remoteStory.chapters.length : 0;
+            var localCharCount = (local.chapters || []).reduce(function (sum, ch) {
+              return sum + (ch.segments || []).reduce(function (sSum, seg) { return sSum + (seg.content || "").length; }, 0);
+            }, 0);
+            var remoteCharCount = (remoteStory.chapters || []).reduce(function (sum, ch) {
+              return sum + (ch.segments || []).reduce(function (sSum, seg) { return sSum + (seg.content || "").length; }, 0);
+            }, 0);
+            var localHasMoreContent = (localChapterCount > remoteChapterCount) || 
+                                      (localChapterCount === remoteChapterCount && localCharCount > remoteCharCount + 50);
+
+            if ((hasLocalMod || localHasMoreContent) && isCloudNewer && local.updatedAt !== remoteStory.updatedAt) {
               // Conflict detected! Ask user
               var choice = await showConflictDialog(local.title, local.updatedAt, remoteStory.updatedAt);
               if (choice === "cloud") {
