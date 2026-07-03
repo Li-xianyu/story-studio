@@ -2,6 +2,10 @@ name = "story-studio-sync"
 main = "src/index.js"
 compatibility_date = "2024-09-23"
 
+# 静态资源 - 管理页面等
+[assets]
+directory = "./public"
+
 # ⚠️ 部署前需要替换以下两个 ID
 # 1. 先执行：npx wrangler kv namespace create SYNC_KV
 # 2. 再执行：npx wrangler kv namespace create SYNC_KV --preview

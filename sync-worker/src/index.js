@@ -30,6 +30,28 @@ function json(data, status) {
   });
 }
 
+/* ---- 内容哈希 ---- */
+
+function djb2(str) {
+  var hash = 5381;
+  for (var i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+    hash = hash & hash;
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function storyContentHash(story) {
+  var parts = [];
+  (story.chapters || []).forEach(function (ch, ci) {
+    parts.push("c" + ci + ":" + (ch.title || ""));
+    (ch.segments || []).forEach(function (seg, si) {
+      parts.push("s" + ci + "_" + si + ":" + (seg.type || "") + ":" + (seg.content || ""));
+    });
+  });
+  return djb2(parts.join("|"));
+}
+
 /* ---- Token 生成 ---- */
 
 async function generateToken() {
@@ -71,6 +93,11 @@ export default {
     /* CORS 预检 */
     if (method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders() });
+    }
+
+    /* 管理面板重定向 */
+    if (path === "/admin" && method === "GET") {
+      return Response.redirect(url.origin + "/admin.html", 302);
     }
 
     /* ---- 公开路由：生成 Token（无需认证） ---- */
@@ -139,11 +166,25 @@ export default {
           var body = await request.json();
           var now = new Date().toISOString();
           var story = Object.assign({}, body, { syncedAt: now });
-          await env.SYNC_KV.put(syncToken + ":story:" + storyId, JSON.stringify(story));
 
-          var meta = { id: storyId, title: story.title || "未命名", updatedAt: story.updatedAt || now, syncedAt: now };
+          // ⚠️ 内容量防护：已存在版本章节数更多时，拒绝少覆盖多
+          var storedStory = await env.SYNC_KV.get(syncToken + ":story:" + storyId, "json");
+          if (storedStory) {
+            var storedChapters = (storedStory.chapters || []).length;
+            var newChapters = (story.chapters || []).length;
+            if (newChapters < storedChapters) {
+              console.warn("[PUT /stories] BLOCKED content loss: '" + (story.title || "untitled") +
+                "' incoming=" + newChapters + "ch, stored=" + storedChapters + "ch.");
+              return json({ error: "拒绝覆盖：云端版本章节数(" + storedChapters + ")多于传入版本(" + newChapters + ")，为防止数据丢失已阻止。请先拉取最新版本。" }, 409);
+            }
+          }
+
+          await env.SYNC_KV.put(syncToken + ":story:" + storyId, JSON.stringify(story));
+          var hash = storyContentHash(story);
+          var chapterCount = (story.chapters || []).length;
+          var meta = { id: storyId, title: story.title || "未命名", updatedAt: story.updatedAt || now, syncedAt: now, contentHash: hash, chapterCount: chapterCount };
           await env.SYNC_KV.put(syncToken + ":meta:" + storyId, JSON.stringify(meta), { metadata: meta });
-          return json({ ok: true, syncedAt: now });
+          return json({ ok: true, syncedAt: now, contentHash: hash });
         }
 
         if (method === "DELETE") {
@@ -189,8 +230,23 @@ export default {
           var storedMetaKey = syncToken + ":meta:" + story.id;
           var storedMeta = await env.SYNC_KV.get(storedMetaKey, "json");
           if (!storedMeta || (story.updatedAt || "") >= (storedMeta.updatedAt || "")) {
+            // ⚠️ 内容量防护：已存在版本章节数更多时，拒绝少覆盖多
+            if (storedMeta) {
+              var storedStory = await env.SYNC_KV.get(syncToken + ":story:" + story.id, "json");
+              if (storedStory) {
+                var storedChapters = (storedStory.chapters || []).length;
+                var newChapters = (story.chapters || []).length;
+                if (newChapters < storedChapters) {
+                  console.warn("[sync/push] BLOCKED content loss: '" + (story.title || "untitled") +
+                    "' incoming=" + newChapters + "ch, stored=" + storedChapters + "ch. Skipping.");
+                  return; // 拒绝覆盖
+                }
+              }
+            }
             await env.SYNC_KV.put(syncToken + ":story:" + story.id, JSON.stringify(Object.assign({}, story, { syncedAt: now })));
-            var meta = { id: story.id, title: story.title || "未命名", updatedAt: story.updatedAt || now, syncedAt: now };
+            var hash = storyContentHash(story);
+            var chapterCount = (story.chapters || []).length;
+            var meta = { id: story.id, title: story.title || "未命名", updatedAt: story.updatedAt || now, syncedAt: now, contentHash: hash, chapterCount: chapterCount };
             await env.SYNC_KV.put(storedMetaKey, JSON.stringify(meta), { metadata: meta });
           }
         }));
@@ -204,19 +260,70 @@ export default {
         return json({ ok: true, pushedAt: now, count: stories.length });
       }
 
-      /* 差异计算（增量同步辅助） */
+      /* 差异计算（v2: contentHash 三路比较） */
       if (path === "/sync/diff" && method === "POST") {
         var body = await request.json();
         var localIndex = body.localIndex || [];
         var cloudIndex = await getCloudIndex(env, syncToken);
 
         var localMap = {};
-        localIndex.forEach(function (s) { localMap[s.id] = s.updatedAt; });
+        localIndex.forEach(function (s) { localMap[s.id] = s; });
         var cloudMap = {};
-        cloudIndex.forEach(function (s) { cloudMap[s.id] = s.updatedAt; });
+        cloudIndex.forEach(function (s) { cloudMap[s.id] = s; });
 
-        var needPull = cloudIndex.filter(function (s) { return !localMap[s.id] || s.updatedAt > localMap[s.id]; });
-        var needPush = localIndex.filter(function (s) { return !cloudMap[s.id] || s.updatedAt > cloudMap[s.id]; });
+        var needPull = [];
+        var needPush = [];
+
+        localIndex.forEach(function (s) {
+          var cloud = cloudMap[s.id];
+          if (!cloud) {
+            // 本地有，云端没有 → push
+            needPush.push(s);
+            return;
+          }
+
+          var localHash = s.contentHash || null;
+          var cloudHash = cloud.contentHash || null;
+          var syncedHash = s.syncedHash || null;
+
+          // v2: 基于 contentHash 的三路比较
+          if (localHash && cloudHash) {
+            if (localHash === cloudHash) {
+              return; // 完全相同，无需同步
+            }
+            if (syncedHash && syncedHash === cloudHash) {
+              // 只有本地变了 → push
+              needPush.push(s);
+              return;
+            }
+            if (syncedHash && syncedHash === localHash) {
+              // 只有云端变了 → pull
+              needPull.push(cloud);
+              return;
+            }
+            // 两端都变了 → 两端都需要（客户端做章节级合并）
+            needPull.push(cloud);
+            needPush.push(s);
+            return;
+          }
+
+          // fallback: 基于 updatedAt 的旧逻辑
+          if (!cloud.updatedAt || (s.updatedAt || "") > cloud.updatedAt) {
+            needPush.push(s);
+          }
+          if (cloud.updatedAt && (!s.updatedAt || cloud.updatedAt > s.updatedAt)) {
+            needPull.push(cloud);
+          }
+        });
+
+        // 云端有但本地没有的故事 → pull
+        var localIds = {};
+        localIndex.forEach(function (s) { localIds[s.id] = true; });
+        cloudIndex.forEach(function (s) {
+          if (!localIds[s.id]) {
+            needPull.push(s);
+          }
+        });
 
         return json({ needPull: needPull, needPush: needPush });
       }
