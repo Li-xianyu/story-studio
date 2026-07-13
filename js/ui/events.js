@@ -12,7 +12,7 @@ import { newChapter, renameChapter, deleteChapter, renameStory, deleteStory, sav
 import { summarizeMemory, prepareChapterMemory, recentNarrative, previousChapterTail, looksNarrativeIncomplete, getLengthMaxTokens, buildSystemPrompt } from "../story/memory.js";
 import { exportStory, importFile } from "../story/import-export.js";
 import { openRelationGraph, closeRelationGraph } from "./relation-graph.js";
-import { streamCompletion, normalizedModelsHost, describeNetworkError } from "../core/api.js";
+import { streamCompletion, requestUrl, describeNetworkError } from "../core/api.js";
 import { pingSyncServer, generateSyncToken, runSync } from "../core/sync.js";
 import { parseInlineSpeechTrack, stripVoiceMarkers, buildSpeechAnnotationInput, parseSpeechAnnotation } from "../core/speech-track.js";
 import { getAllStories, saveStory, deleteStory as dbDeleteStory } from "../core/db.js";
@@ -2093,6 +2093,12 @@ export function bindEvents() {
     event.preventDefault(); saveSettingsForm(); el.settingsDialog.close();
   });
 
+  if (el.apiProxyToggle) {
+    el.apiProxyToggle.addEventListener("change", function () {
+      settings.apiProxyEnabled = el.apiProxyToggle.checked;
+    });
+  }
+
   if (el.apiProvider) {
     el.apiProvider.addEventListener("change", function () {
       var val = el.apiProvider.value;
@@ -2135,7 +2141,7 @@ export function bindEvents() {
     if (window.lucide && typeof window.lucide.createIcons === "function") window.lucide.createIcons();
 
     try {
-      var url = normalizedModelsHost(host);
+      var url = requestUrl(host, "/v1/models");
       
       var res = await fetch(url, {
         method: "GET",
@@ -2209,7 +2215,7 @@ export function bindEvents() {
         throw new Error("未返回 models 数组");
       }
     } catch (err) {
-      console.error("获取模型列表失败", { url: normalizedModelsHost(host), error: err });
+      console.error("获取模型列表失败", { url: requestUrl(host, "/v1/models"), error: err });
       toast(el.toast, "获取模型列表失败：" + describeNetworkError(err));
     } finally {
       el.fetchModelsBtn.disabled = false;

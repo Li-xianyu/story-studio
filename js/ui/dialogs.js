@@ -19,6 +19,7 @@ export function fillSettingsForm() {
     if (el[key]) el[key].value = settings[key] || "";
   });
   
+  if (el.apiProxyToggle) el.apiProxyToggle.checked = !!settings.apiProxyEnabled;
   syncApiModelOptions(settings.apiProvider || "deepseek", settings.apiModel);
   
   populateVoices();
@@ -132,6 +133,8 @@ export function saveSettingsForm(silent) {
     if (el[key]) settings[key] = el[key].value.trim();
   });
   
+  settings.apiProxyEnabled = !!(el.apiProxyToggle && el.apiProxyToggle.checked);
+
   if (el.apiModel.value === "custom") {
     settings.apiModel = el.apiModelCustom.value.trim();
   } else {

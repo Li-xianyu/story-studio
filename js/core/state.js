@@ -46,6 +46,8 @@ export var settings = {
   syncToken: "",
   apiProvider: "deepseek",
   apiModelCustom: "",
+  apiProxyEnabled: false,
+  apiProxyHost: "https://story-studio-ai-proxy.lpswz0001.workers.dev",
   thinkingEnabled: false,
 };
 
@@ -73,7 +75,7 @@ var ids = [
   "syncHost", "syncToken", "copySyncTokenBtn", "genSyncTokenBtn", "syncPingBtn", "syncNowBtn",
   "trashList", "emptyTrashBtn", "syncIndicator",
   "setupWordGoal", "chapterWordGoalInput",
-  "apiProvider", "apiModelCustom", "fetchModelsBtn"
+  "apiProvider", "apiModelCustom", "apiProxyToggle", "fetchModelsBtn"
 ];
 
 export function cacheElements() {

@@ -355,6 +355,11 @@
           </custom-select>
         </label>
         <label>API 地址<input id="apiHost" placeholder="https://api.deepseek.com"></label>
+        <label class="switch-label" style="justify-content:space-between;margin:4px 0 10px;">
+          <b style="font-weight:500;color:var(--text-secondary);">通过 Cloudflare Worker 协助处理跨域</b>
+          <input id="apiProxyToggle" type="checkbox">
+          <span aria-hidden="true"></span>
+        </label>
         <label>API Key<input id="apiKey" type="password" autocomplete="off" placeholder="输入您的 API Key"></label>
         
         <label>模型

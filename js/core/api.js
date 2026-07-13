@@ -22,6 +22,14 @@ export function normalizedModelsHost(host) {
   return value + "/v1/models";
 }
 
+export function requestUrl(host, path) {
+  var target = normalizedBaseUrl(host).replace(/\/v1$/i, "");
+  if (settings.apiProxyEnabled && settings.apiProxyHost) {
+    return String(settings.apiProxyHost).replace(/\/+$/, "") + path + "?target=" + encodeURIComponent(target);
+  }
+  return path === "/v1/models" ? normalizedModelsHost(host) : normalizedHost(host);
+}
+
 export function describeNetworkError(err) {
   if (err && err.name === "AbortError") return "请求超时（20 秒），请检查 API 地址或服务状态";
   if (err && err.name === "TypeError") {
@@ -94,7 +102,7 @@ export async function streamCompletion(messages, onDelta, options) {
 
   if (options && options.thinking) body.thinking = { type: options.thinking };
   if (options && options.responseFormat) body.response_format = options.responseFormat;
-  var response = await fetch(normalizedHost(settings.apiHost), {
+  var response = await fetch(requestUrl(settings.apiHost, "/v1/chat/completions"), {
     method: "POST",
     headers: { Authorization: "Bearer " + settings.apiKey, "Content-Type": "application/json" },
     body: JSON.stringify(body),

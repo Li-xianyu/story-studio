@@ -5,7 +5,7 @@
  * requests to VanYo. The browser supplies its own API key in Authorization.
  */
 
-var UPSTREAM_ORIGIN = "https://api.vanyospace.com";
+var DEFAULT_UPSTREAM_ORIGIN = "https://api.vanyospace.com";
 var ALLOWED_ROUTES = {
   "/v1/models": ["GET"],
   "/v1/chat/completions": ["POST"]
@@ -62,7 +62,17 @@ export default {
     if (contentType) headers.set("Content-Type", contentType);
     if (accept) headers.set("Accept", accept);
 
-    var upstreamUrl = UPSTREAM_ORIGIN + url.pathname + url.search;
+    var target = url.searchParams.get("target") || DEFAULT_UPSTREAM_ORIGIN;
+    var targetUrl;
+    try {
+      targetUrl = new URL(target);
+      if (targetUrl.protocol !== "https:") return jsonError("Target must use HTTPS", 400);
+    } catch (_) {
+      return jsonError("Invalid target URL", 400);
+    }
+
+    var upstreamUrl = targetUrl.origin + targetUrl.pathname.replace(/\/+$/, "") + url.pathname +
+      (targetUrl.search || "");
     try {
       var upstream = await fetch(upstreamUrl, {
         method: request.method,
