@@ -5,11 +5,29 @@
 import { settings, state } from "./state.js";
 import { openSettings } from "../ui/dialogs.js";
 
+function normalizedBaseUrl(host) {
+  return String(host || "").trim().replace(/\/+$/, "")
+    .replace(/\/(?:chat\/completions|models)$/i, "");
+}
+
 export function normalizedHost(host) {
-  var value = String(host || "").trim().replace(/\/+$/, "");
-  if (/\/chat\/completions$/i.test(value)) return value;
+  var value = normalizedBaseUrl(host);
   if (/\/v1$/i.test(value)) return value + "/chat/completions";
   return value + "/v1/chat/completions";
+}
+
+export function normalizedModelsHost(host) {
+  var value = normalizedBaseUrl(host);
+  if (/\/v1$/i.test(value)) return value + "/models";
+  return value + "/v1/models";
+}
+
+export function describeNetworkError(err) {
+  if (err && err.name === "AbortError") return "请求超时（20 秒），请检查 API 地址或服务状态";
+  if (err && err.name === "TypeError") {
+    return "浏览器无法读取该地址的响应，通常是 CORS 跨域限制、网络代理或 TLS 证书问题";
+  }
+  return err && err.message ? err.message : "未知网络错误";
 }
 
 export async function streamCompletion(messages, onDelta, options) {
